@@ -233,7 +233,7 @@ function AdminDashboard({ go, publishItem, updateItem }: { go: (view: View) => v
     if (!section) return;
     const details = document.createElement("div");
     details.className = "invoice-extra";
-    const rows = currentInvoice.items.map(([name, variant, quantity, price]) => `<div class="invoice-line"><div><b>${name}</b><small>${variant}</small></div><span>×${quantity}</span><strong>${price}</strong></div>`).join("");
+    const rows = currentInvoice.items.map(([name, variant, quantity, price]) => { const image = products.find((product) => product.name === name)?.image || products[0].image; return `<div class="invoice-line"><img src="${image}" alt=""/><div><b>${name}</b><small>${variant}</small></div><span>×${quantity}</span><strong>${price}</strong></div>`; }).join("");
     details.innerHTML = `<div class="invoice-meta"><span>Transaction number <b>${currentInvoice.transaction}</b></span><span>Payment method <b>${currentInvoice.method}</b></span><span class="invoice-address">Billing details <b>${currentInvoice.address}</b></span></div><div class="invoice-items"><p>Items in this order</p>${rows}</div>`;
     section.insertBefore(details, section.children[1] || null);
     return () => details.remove();

@@ -310,3 +310,22 @@ footer { background:var(--ink); color:#f9f5ed; padding:45px 5.4vw 25px; }
 .invoice-line small { color:#947a66; font-size:10px; }
 .invoice-line span,.invoice-line strong { color:#5a4332; font-size:11px; }
 @media (max-width:600px) { .invoice-meta { grid-template-columns:1fr; }.invoice-line { gap:8px; }.invoice-line strong { white-space:nowrap; } }
+
+/* Product score is informational: no hover or glow. The review stars are the only rating control. */
+.rating-selector { gap:1px; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; }
+.rating-selector button { width:16px; height:16px; color:#e2af16; pointer-events:none; }
+.rating-selector button:hover,.rating-selector button.active { color:#e2af16; background:transparent; transform:none; }
+.rating-selector>span { margin-left:7px; color:#7c6958; }
+.review-stars { display:flex; gap:7px; }
+.review-stars button { display:grid; place-items:center; width:34px; height:34px; border:1px solid #efd889; border-radius:10px; background:#fff9df; color:#e4b019; transition:transform .18s ease,background .18s ease; }
+.review-stars button:hover { transform:translateY(-2px); background:#fff0af; }
+
+/* Keep invoice items below the transaction and billing data, where they are easier to scan. */
+.invoice-detail section>.invoice-extra { display:grid; grid-template-columns:1fr; gap:16px; padding:0; border:0; }
+.invoice-detail section>.invoice-extra .invoice-meta { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.invoice-detail section>.invoice-extra .invoice-address { grid-column:1 / -1; }
+.invoice-detail section>.invoice-extra .invoice-items { display:grid; gap:8px; width:100%; padding-top:2px; }
+.invoice-detail section>.invoice-extra .invoice-items>p { display:block; padding:0 0 10px; border-bottom:1px solid #ead8c8; }
+.invoice-detail section>.invoice-extra .invoice-line { display:grid; grid-template-columns:42px 1fr auto auto; align-items:center; gap:12px; padding:9px 0; border-top:0; }
+.invoice-line img { width:42px; height:50px; border-radius:8px; object-fit:cover; background:#f1e4d5; }
+@media (max-width:600px) { .invoice-detail section>.invoice-extra .invoice-meta { grid-template-columns:1fr; }.invoice-detail section>.invoice-extra .invoice-line { grid-template-columns:38px 1fr auto; }.invoice-line img { width:38px; height:45px; }.invoice-line span { display:none; } }
