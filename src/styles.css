@@ -311,14 +311,16 @@ footer { background:var(--ink); color:#f9f5ed; padding:45px 5.4vw 25px; }
 .invoice-line span,.invoice-line strong { color:#5a4332; font-size:11px; }
 @media (max-width:600px) { .invoice-meta { grid-template-columns:1fr; }.invoice-line { gap:8px; }.invoice-line strong { white-space:nowrap; } }
 
-/* Product score is informational: no hover or glow. The review stars are the only rating control. */
-.rating-selector { gap:1px; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; }
-.rating-selector button { width:16px; height:16px; color:#e2af16; pointer-events:none; }
-.rating-selector button:hover,.rating-selector button.active { color:#e2af16; background:transparent; transform:none; }
+/* Product score stays informational. In the review form only, stars fill from left to right
+   while the pointer moves, then keep the selected rating with a restrained yellow glow. */
+.rating-selector { gap:1px; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; color:#e2af16; }
 .rating-selector>span { margin-left:7px; color:#7c6958; }
-.review-stars { display:flex; gap:7px; }
-.review-stars button { display:grid; place-items:center; width:34px; height:34px; border:1px solid #efd889; border-radius:10px; background:#fff9df; color:#e4b019; transition:transform .18s ease,background .18s ease; }
-.review-stars button:hover { transform:translateY(-2px); background:#fff0af; }
+.review-stars { display:flex; gap:7px; margin-bottom:15px; }
+.review-stars button { display:grid; place-items:center; width:34px; height:34px; padding:0; border:1px solid #f0dc94; border-radius:10px; background:#fffdf4; color:#c9b77e; transform:scale(1); transition:color .15s ease, background .15s ease, border-color .15s ease, transform .15s ease, box-shadow .15s ease; }
+.review-stars button.active { border-color:#efc52b; background:#fff8d8; color:#edbc13; box-shadow:0 3px 10px rgba(238,187,19,.25), 0 0 14px rgba(255,208,50,.18); }
+.review-stars button:hover,.review-stars button:focus-visible { transform:translateY(-2px) scale(1.1); outline:none; }
+.review-stars button:focus-visible { box-shadow:0 0 0 3px rgba(238,187,19,.26); }
+.review-form .glow-button:disabled { cursor:not-allowed; opacity:.48; box-shadow:none; }
 
 /* Keep invoice items below the transaction and billing data, where they are easier to scan. */
 .invoice-detail section>.invoice-extra { display:grid; grid-template-columns:1fr; gap:16px; padding:0; border:0; }
@@ -345,6 +347,11 @@ footer { background:var(--ink); color:#f9f5ed; padding:45px 5.4vw 25px; }
 
 /* Gift card themes and payment selector */
 .gift-preview.gift-ivory { border-color:#ddc5a6; background:linear-gradient(135deg,#fffaf1,#eadcc9); color:#442f23; }.gift-preview.gift-ivory span { color:#81624b; }.gift-preview.gift-ivory .gift-preview-mark { background:#442f23; color:#fff8ed; }.gift-preview.gift-night { border-color:#252522; background:linear-gradient(135deg,#191918,#393633); color:#fffaf0; }.gift-preview.gift-night .gift-preview-mark { background:#c69463; color:#231e1a; }.gift-preview.gift-night span { color:#cfc5b9; }
+.gift-preview { --gift-tilt-x:0; --gift-tilt-y:0; --gift-glow-x:50%; --gift-glow-y:50%; transform:perspective(900px) rotateX(calc(var(--gift-tilt-x) * 1deg)) rotateY(calc(var(--gift-tilt-y) * 1deg)) translateZ(0); transform-style:preserve-3d; transition:transform .18s ease-out,box-shadow .24s ease; will-change:transform; }
+.gift-preview:before { content:""; position:absolute; inset:0; z-index:0; opacity:0; background:radial-gradient(circle at var(--gift-glow-x) var(--gift-glow-y),rgba(255,255,255,.28),transparent 34%); pointer-events:none; transition:opacity .2s ease; }
+.gift-preview:hover { box-shadow:0 34px 48px rgba(63,37,21,.3); }
+.gift-preview:hover:before { opacity:1; }
+@media (prefers-reduced-motion:reduce) { .gift-preview { transform:none; transition:none; } }
 .gift-design-label { margin-top:28px; }.gift-designs { display:grid; grid-template-columns:1fr; gap:8px; }.gift-designs button { display:grid; grid-template-columns:70px 1fr auto; align-items:center; gap:11px; padding:8px; border:1px solid #e4cdb7; border-radius:14px; background:#fffefa; color:#654a35; text-align:left; }.gift-designs button.active { border-color:#9e6b48; background:#f3e0cd; }.gift-designs button>svg { opacity:0; color:#8c5d3e; }.gift-designs button.active>svg { opacity:1; }.mini-gift-card { display:grid; place-items:center; height:39px; border-radius:8px; background:linear-gradient(135deg,#39271d,#92613e); color:#fff7ed; font-style:normal; font-size:14px; font-weight:800; }.mini-ivory { background:linear-gradient(135deg,#fffaf1,#e5d4bd); color:#443025; }.mini-night { background:linear-gradient(135deg,#171715,#4a4540); color:#f9f0e5; }
 .gift-form>aside .payment-choices { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; padding:0; border:0; }.payment-choices button { display:flex; align-items:center; justify-content:center; gap:4px; min-height:36px; padding:6px; border:1px solid rgba(255,245,232,.3); border-radius:10px; background:rgba(255,255,255,.08); color:#fff9ef; font-size:10px; font-weight:700; }.payment-choices button.active { border-color:#fff6e9; background:#fff9ef; color:#553b2a; }
 
