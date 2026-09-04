@@ -11,4 +11,4 @@ This project is a frontend-only React, TypeScript, and Vite ecommerce storefront
 
 ## Current scope
 
-Product data, product images, cart behavior, and newsletter confirmation are local mock content. Payments, authentication, checkout, shipping, persistence, databases, and real customer accounts are intentionally not connected.
+The storefront uses the original BH product images from `public/catalog`. Prices and inventory are intentionally unpublished until the owner confirms them. Payments, authentication, checkout, shipping, persistence, databases, and real customer accounts are not connected yet.
