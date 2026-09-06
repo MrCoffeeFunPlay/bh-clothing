@@ -12,16 +12,28 @@ export type Product = {
   sizes?: string[];
   images?: string[];
   colorImages?: Record<string, string>;
+  colorHexes?: Record<string, string>;
+  cottonWeights?: ("220g" | "260g")[];
+  lookbookImages?: string[];
 };
 
 const asset = (path: string) => `/catalog/${path.split("/").map(encodeURIComponent).join("/")}`;
 
-const withProductImages = (colors: Record<string, string>) => ({
+const colourHexes: Record<string, string> = {
+  Black: "#171716", Blue: "#405c91", "Forest Green": "#294c39", Gray: "#8f9190", "Light Gray": "#d2d2cf",
+  "Light Pink": "#efc6cf", Purple: "#6d4d86", Red: "#ae3034", White: "#faf9f5", Yellow: "#e4bf36",
+  Khaki: "#9b8657", Mint: "#91c7b6", Pink: "#db8fa1",
+};
+
+const withProductImages = (colors: Record<string, string>, lookbookImages: string[] = [], cottonWeights: ("220g" | "260g")[] = ["220g", "260g"]) => ({
   color: Object.keys(colors).join(", "),
   image: Object.values(colors)[0],
   images: Object.values(colors),
   colorImages: colors,
+  colorHexes: Object.fromEntries(Object.keys(colors).map((colour) => [colour, colourHexes[colour] || "#8d8275"])),
   sizes: ["S", "M", "L", "XL"],
+  cottonWeights,
+  lookbookImages,
 });
 
 const fallenSword = {
@@ -88,16 +100,31 @@ const looseShorts = {
   Yellow: asset("Pants/loose shorts/yellow.png"),
 };
 
+const fallenSwordLookbook = asset("lookbook/fallen-sword-models.png");
+const oniSwordLookbook = asset("lookbook/oni-sword-models.png");
+const oniMaskLookbook = asset("lookbook/oni-mask-models.png");
+const roseLookbook = asset("lookbook/rose-models.png");
+
+const fallenSwordHoodie = { Black: asset("hoodies/fallen-sword-colours.png"), Gray: asset("hoodies/fallen-sword-colours.png"), White: asset("hoodies/fallen-sword-colours.png") };
+const oniSwordHoodie = { Black: asset("hoodies/oni-sword-black.png"), Gray: asset("hoodies/oni-sword-colours.png"), White: asset("hoodies/oni-sword-colours.png") };
+const oniMaskHoodie = { Black: asset("hoodies/oni-mask-colours.png"), Gray: asset("hoodies/oni-mask-colours.png"), White: asset("hoodies/oni-mask-colours.png") };
+const roseHoodie = { Black: asset("hoodies/rose-colours.png"), Gray: asset("hoodies/rose-colours.png"), White: asset("hoodies/rose-colours.png") };
+
 // Prices and stock deliberately stay unpublished until the owner provides them.
 export const products: Product[] = [
-  { id: 1, name: "Fallen Sword Tee", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "Original BH Fallen Sword artwork, available in multiple colours.", ...withProductImages(fallenSword) },
-  { id: 2, name: "Oni Blade Tee", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "Original BH Oni Blade artwork, available in multiple colours.", ...withProductImages(oniBlade) },
-  { id: 3, name: "Oni Mask Tee", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "Original BH Oni Mask artwork, available in multiple colours.", ...withProductImages(oniMask) },
-  { id: 4, name: "Rose Tee", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "Original BH Rose artwork, available in multiple colours.", ...withProductImages(rose) },
-  { id: 5, name: "Loose Shorts", category: "Shorts", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "BH loose shorts, available in multiple colours.", ...withProductImages(looseShorts) },
+  { id: 1, name: "Fallen Sword", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "Original BH Fallen Sword artwork. Choose the colour and cotton weight that feel right for you.", ...withProductImages(fallenSword, [fallenSwordLookbook]) },
+  { id: 2, name: "Oni Sword", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "Original BH Oni Sword artwork. Choose the colour and cotton weight that feel right for you.", ...withProductImages(oniBlade, [oniSwordLookbook]) },
+  { id: 3, name: "Oni Mask", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "Original BH Oni Mask artwork. Choose the colour and cotton weight that feel right for you.", ...withProductImages(oniMask, [oniMaskLookbook]) },
+  { id: 4, name: "Rose", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "Original BH Rose artwork. Choose the colour and cotton weight that feel right for you.", ...withProductImages(rose, [roseLookbook]) },
+  { id: 5, name: "Loose Shorts", category: "Shorts", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "BH loose shorts, available in multiple colours.", ...withProductImages(looseShorts, [], []) },
+  { id: 6, name: "Fallen Sword Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Fallen Sword artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...withProductImages(fallenSwordHoodie, [asset("lookbook/fallen-sword-hoodie-model.png")]) },
+  { id: 7, name: "Oni Sword Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Oni Sword artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...withProductImages(oniSwordHoodie, [asset("lookbook/oni-sword-hoodie-model.png")]) },
+  { id: 8, name: "Oni Mask Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Oni Mask artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...withProductImages(oniMaskHoodie, [asset("lookbook/oni-mask-hoodie-model.png")]) },
+  { id: 9, name: "Rose Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Rose artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...withProductImages(roseHoodie, [asset("lookbook/rose-hoodie-model.png")]) },
 ];
 
 export const categories = [
   ["Tees", "Original BH artwork, built for everyday.", fallenSword.Black],
+  ["Hoodies", "Pullover weight, drawstrings and kangaroo pockets.", oniSwordHoodie.Black],
   ["Shorts", "Relaxed fit, made to move.", looseShorts.Black],
 ] as const;

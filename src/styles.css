@@ -156,7 +156,9 @@ h1 em,h2 em { font-style:normal; color:transparent; -webkit-text-stroke:1px var(
 .main-image>img { display:block; width:100%; aspect-ratio:4/5; object-fit:cover; }
 .main-image>span { position:absolute; bottom:13px; left:13px; padding:10px; display:flex; gap:7px; align-items:center; background:#f8f4ec; font-size:9px; text-transform:uppercase; letter-spacing:.1em; }
 .thumbs { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; }
-.thumbs img { width:100%; height:125px; object-fit:cover; display:block; filter:saturate(.7); }
+.thumbs button { padding:0; overflow:hidden; border:1px solid transparent; background:#f2eee7; }
+.thumbs button.active { border-color:var(--ink); }
+.thumbs img { width:100%; height:125px; object-fit:cover; display:block; filter:saturate(.8); }
 .product-info { padding-top:14px; }
 .product-info h1 { font-size:clamp(48px,5.3vw,80px); }
 .rating { display:flex; align-items:center; gap:11px; }
@@ -172,6 +174,11 @@ h1 em,h2 em { font-style:normal; color:transparent; -webkit-text-stroke:1px var(
 .swatches button.active { border-color:var(--ink); }
 .swatches i { display:block; width:100%; height:100%; border-radius:50%; background:#8d8275; }
 .swatches i.black { background:#171716; }.swatches i.ecru { background:#ede8dc; border:1px solid #d3ccc0; }.swatches i.stone { background:#8d8275; }
+.option-note { display:block; margin-top:8px; color:var(--muted); font-size:9px; line-height:1.45; }
+.weights { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.weights button { display:grid; gap:3px; padding:11px 12px; border:1px solid #dfd5c8; background:#fffdfa; text-align:left; }
+.weights button.active { border-color:var(--ink); background:#f0e6db; }
+.weights b { font-size:12px; }.weights small { color:var(--muted); font-size:9px; }
 .sizes button { width:46px; height:39px; background:transparent; border:1px solid var(--line); font-size:11px; }
 .sizes button.active { background:var(--ink); color:white; border-color:var(--ink); }
 .add-bag { width:100%; margin:34px 0 20px; padding:17px; display:flex; justify-content:space-between; background:var(--ink); color:#fff; text-transform:uppercase; letter-spacing:.1em; font-size:10px; }
