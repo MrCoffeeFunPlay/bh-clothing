@@ -4,7 +4,6 @@ import { categories, products, type Product } from "./catalog";
 import { OwnerPanel } from "./OwnerPanel";
 import { WelcomeOfferModal } from "./WelcomeOfferModal";
 import { AssistantV2 } from "./AssistantV2";
-import { LanguageSwitch } from "./LanguageSwitch";
 
 type View = "home" | "store" | "collection" | "club" | "account" | "reviews" | "product" | "cart" | "admin" | "info" | "plan" | "gift";
 type AccountSection = "profile" | "orders" | "wallet" | "settings";
@@ -70,7 +69,7 @@ export default function App() {
     <header><button className="icon menu" onClick={() => setMenu(!menu)}>{menu ? <X/> : <Menu/>}</button><button className="wordmark" onClick={() => go("home")}>BH <span>Clothing</span></button>
       <nav className={menu ? "open" : ""}>
         <button className={view === "home" ? "active" : ""} onClick={() => go("home")}>Home</button>
-        <div className="nav-menu"><button className={view === "store" || view === "collection" ? "active" : ""} onClick={() => go("store")}>Store <ChevronDown size={13}/></button><div className="nav-dropdown">{["All", "Tees", "Hoodies", "Shorts"].map((item) => <button key={item} onClick={() => { setCategory(item); go(item === "All" ? "store" : "collection"); }}>{item === "All" ? "Shop all" : item}</button>)}</div></div>
+        <div className="nav-menu"><button className={view === "store" || view === "collection" ? "active" : ""} onClick={() => go("store")}>Store <ChevronDown size={13}/></button><div className="nav-dropdown">{["All", "Tees", "Hoodies", "Shorts", "Accessories", "Anime"].map((item) => <button key={item} onClick={() => { setCategory(item); go(item === "All" ? "store" : "collection"); }}>{item === "All" ? "Shop all" : item}</button>)}</div></div>
         <button onClick={() => { setCategory("All"); go("collection"); }}>New Drop</button>
         <div className="nav-menu"><button className={view === "club" ? "active" : ""} onClick={() => go("club")}>BH Club <ChevronDown size={13}/></button><div className="nav-dropdown"><button onClick={() => { setClubTab("plans"); go("club"); }}>BH Plans</button><button onClick={() => { setClubTab("points"); go("club"); }}>BH Points</button><button onClick={() => go("gift")}>Gift cards</button></div></div>
       </nav>
@@ -98,7 +97,6 @@ export default function App() {
     {cartOpen && <CartDrawer items={cart} remove={remove} onClose={() => setCartOpen(false)} go={go}/>}
     {authOpen && <AuthModal onClose={() => setAuthOpen(false)} onContinue={() => { setSignedIn(true); setAuthOpen(false); go("account"); }}/>}
     {!signedIn && <WelcomeOfferModal onJoin={() => setAuthOpen(true)}/>}
-    <LanguageSwitch/>
   </div>;
 }
 
