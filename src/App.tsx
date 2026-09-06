@@ -1,6 +1,10 @@
 import { FormEvent, MouseEvent as ReactMouseEvent, useEffect, useState } from "react";
 import { Activity, ArrowRight, AtSign, BadgeCheck, BadgeDollarSign, BarChart3, Bell, CakeSlice, CalendarDays, Check, ChevronLeft, ChevronDown, CircleDollarSign, CircleHelp, ClipboardList, Coins, CreditCard, Crown, Download, FileText, Gem, Gift, Heart, Layers, LockKeyhole, LogOut, Mail, MapPin, Menu, MessageCircle, PackageCheck, Plus, ReceiptText, Search, Send, Settings, ShieldCheck, Shirt, ShoppingBag, Sparkles, Star, Swords, Ticket, Truck, UserPen, UserRound, Users, WalletCards, X, ZoomIn } from "lucide-react";
 import { categories, products, type Product } from "./catalog";
+import { OwnerPanel } from "./OwnerPanel";
+import { WelcomeOfferModal } from "./WelcomeOfferModal";
+import { AssistantV2 } from "./AssistantV2";
+import { LanguageSwitch } from "./LanguageSwitch";
 
 type View = "home" | "store" | "collection" | "club" | "account" | "reviews" | "product" | "cart" | "admin" | "info" | "plan" | "gift";
 type AccountSection = "profile" | "orders" | "wallet" | "settings";
@@ -82,7 +86,7 @@ export default function App() {
       {view === "reviews" && <Reviews open={open}/>}
       {view === "product" && <ProductPage key={product.id} product={product} go={go} add={add}/>}
       {view === "cart" && <CartPageV2 items={cart} remove={remove} go={go}/>}
-      {view === "admin" && <AdminDashboard go={go} publishItem={publishItem} updateItem={updateItem}/>}
+      {view === "admin" && <OwnerPanel/>}
       {view === "info" && <Info page={infoPage} openInfo={openInfo}/>}
       {view === "plan" && <PlanDetails plan={selectedPlan} go={go}/>}
       {view === "gift" && <GiftCardV3 go={go}/>}
@@ -90,9 +94,11 @@ export default function App() {
     {!signedIn && <section className="newsletter"><div><p className="kicker">Stay connected</p><h2>Keep your <em>story</em> moving.</h2></div><div><p>New drops, member-only news and no noise.</p>{subscribed ? <p className="success"><Check size={16}/> You’re on the list.</p> : <form onSubmit={(event: FormEvent) => { event.preventDefault(); setSubscribed(true); }}><input type="email" required placeholder="Your email address"/><button>Join <ArrowRight size={15}/></button></form>}</div></section>}
     <footer><div className="footer-top"><button className="wordmark" onClick={() => go("home")}>BH <span>Clothing</span></button><p>Wear your story. Your way.</p><div className="social-links"><a href={"mailto:" + contactEmail} aria-label="Email BH"><Mail/> <span>Email</span></a><a href="https://wa.me/" target="_blank" rel="noreferrer" aria-label="WhatsApp BH"><MessageCircle/> <span>WhatsApp</span></a><a href="https://instagram.com/" target="_blank" rel="noreferrer" aria-label="Instagram BH"><AtSign/> <span>Instagram</span></a></div></div><div className="footer-bottom"><span>© 2026 BH Clothing</span><button onClick={() => go("reviews")}>Reviews</button><button onClick={() => openInfo("about")}>About us</button><button onClick={() => openInfo("faq")}>FAQ</button><button onClick={() => openInfo("privacy")}>Privacy</button><button onClick={() => openInfo("terms")}>Terms & conditions</button></div></footer>
     <button className="chat-trigger" onClick={() => setChat(!chat)}>{chat ? <X/> : <MessageCircle/>}</button>
-    {chat && <Assistant onClose={() => setChat(false)}/>}
+    {chat && <AssistantV2 onClose={() => setChat(false)}/>}
     {cartOpen && <CartDrawer items={cart} remove={remove} onClose={() => setCartOpen(false)} go={go}/>}
     {authOpen && <AuthModal onClose={() => setAuthOpen(false)} onContinue={() => { setSignedIn(true); setAuthOpen(false); go("account"); }}/>}
+    {!signedIn && <WelcomeOfferModal onJoin={() => setAuthOpen(true)}/>}
+    <LanguageSwitch/>
   </div>;
 }
 
