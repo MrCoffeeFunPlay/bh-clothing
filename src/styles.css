@@ -298,9 +298,9 @@ footer { background:var(--ink); color:#f9f5ed; padding:45px 5.4vw 25px; }
 /* Back artwork now lives in the product markup, so it works in every browser. */
 .main-image>span { z-index:2; }
 .product-hoodies .main-image { background:radial-gradient(circle at 18% 12%,#f5e8d5 0,transparent 31%),linear-gradient(135deg,#d8c5af,#eee2d3 58%,#c8b29c); }
-.product-tees .main-image,.product-shorts .main-image,.product-accessories .main-image,.product-anime .main-image { background-image:linear-gradient(rgba(95,101,105,.12),rgba(95,101,105,.12)),url("/catalog/backgrounds/product-studio-concrete.png"); background-position:center; background-size:cover; }
-.product-shorts .main-image { background-image:linear-gradient(rgba(255,255,255,.28),rgba(255,255,255,.28)),url("/catalog/backgrounds/product-studio-concrete.png"); }
-.product-accessories .main-image,.product-anime .main-image { background-image:linear-gradient(rgba(247,244,238,.12),rgba(247,244,238,.12)),url("/catalog/backgrounds/product-studio-concrete.png"); }
+.product-tees .main-image,.product-shorts .main-image,.product-accessories .main-image,.product-anime .main-image { background-image:linear-gradient(rgba(95,101,105,.12),rgba(95,101,105,.12)),url("/catalog/backgrounds/product-studio-concrete.jpg"); background-position:center; background-size:cover; }
+.product-shorts .main-image { background-image:linear-gradient(rgba(255,255,255,.28),rgba(255,255,255,.28)),url("/catalog/backgrounds/product-studio-concrete.jpg"); }
+.product-accessories .main-image,.product-anime .main-image { background-image:linear-gradient(rgba(247,244,238,.12),rgba(247,244,238,.12)),url("/catalog/backgrounds/product-studio-concrete.jpg"); }
 .product-tees .main-image>img.colour-image,.product-shorts .main-image>img.colour-image,.product-accessories .main-image>img.colour-image,.product-anime .main-image>img.colour-image { mix-blend-mode:normal; filter:drop-shadow(0 16px 16px rgba(61,46,33,.16)); }
 
 /* Owner dashboard: operational controls live here; storefront styling remains untouched. */
