@@ -144,10 +144,10 @@ const oniSwordHoodie = { Black: asset("hoodies/oni-sword-black-new.png"), Gray: 
 const oniMaskHoodie = { Gray: asset("hoodies/oni-mask-gray-new.png"), Black: asset("hoodies/oni-mask-black-new.png"), White: asset("hoodies/oni-mask-white-new.png") };
 const roseHoodie = { White: asset("hoodies/rose-white-new.png"), Black: asset("hoodies/rose-black-new.png"), Gray: asset("hoodies/rose-gray-new.png") };
 
-const fallenSwordHoodieBack = { White: asset("hoodies/fallen-sword-white-back-printed.png"), Black: asset("hoodies/fallen-sword-black-back-printed.png"), Gray: asset("hoodies/fallen-sword-gray-back-printed.png") };
-const oniSwordHoodieBack = { Black: asset("hoodies/oni-sword-black-back-printed.png"), Gray: asset("hoodies/oni-sword-gray-back-printed.png"), White: asset("hoodies/oni-sword-white-back-printed.png") };
-const oniMaskHoodieBack = { Gray: asset("hoodies/oni-mask-gray-back-printed.png"), Black: asset("hoodies/oni-mask-black-back-printed.png"), White: asset("hoodies/oni-mask-white-back-printed.png") };
-const roseHoodieBack = { White: asset("hoodies/rose-white-back-printed.png"), Black: asset("hoodies/rose-black-back-printed.png"), Gray: asset("hoodies/rose-gray-back-printed.png") };
+const fallenSwordHoodieBack = { White: asset("hoodies/fallen-sword-white-back-printed.jpg"), Black: asset("hoodies/fallen-sword-black-back-printed.jpg"), Gray: asset("hoodies/fallen-sword-gray-back-printed.jpg") };
+const oniSwordHoodieBack = { Black: asset("hoodies/oni-sword-black-back-printed.jpg"), Gray: asset("hoodies/oni-sword-gray-back-printed.jpg"), White: asset("hoodies/oni-sword-white-back-printed.jpg") };
+const oniMaskHoodieBack = { Gray: asset("hoodies/oni-mask-gray-back-printed.jpg"), Black: asset("hoodies/oni-mask-black-back-printed.jpg"), White: asset("hoodies/oni-mask-white-back-printed.jpg") };
+const roseHoodieBack = { White: asset("hoodies/rose-white-back-printed.jpg"), Black: asset("hoodies/rose-black-back-printed.jpg"), Gray: asset("hoodies/rose-gray-back-printed.jpg") };
 
 // Prices and stock deliberately stay unpublished until the owner provides them.
 export const products: Product[] = [
