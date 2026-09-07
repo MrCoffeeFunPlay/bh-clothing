@@ -13,8 +13,6 @@ export type Product = {
   images?: string[];
   colorImages?: Record<string, string>;
   backImages?: Record<string, string>;
-  /** Overlay artwork rendered only on the hoodie back photo. */
-  backPrint?: string;
   colorHexes?: Record<string, string>;
   cottonWeights?: ("220g" | "260g")[];
   lookbookImages?: string[];
@@ -146,10 +144,10 @@ const oniSwordHoodie = { Black: asset("hoodies/oni-sword-black-new.png"), Gray: 
 const oniMaskHoodie = { Gray: asset("hoodies/oni-mask-gray-new.png"), Black: asset("hoodies/oni-mask-black-new.png"), White: asset("hoodies/oni-mask-white-new.png") };
 const roseHoodie = { White: asset("hoodies/rose-white-new.png"), Black: asset("hoodies/rose-black-new.png"), Gray: asset("hoodies/rose-gray-new.png") };
 
-const fallenSwordHoodieBack = { White: asset("hoodies/fallen-sword-white-back.png"), Black: asset("hoodies/fallen-sword-black-back.png"), Gray: asset("hoodies/fallen-sword-gray-back.png") };
-const oniSwordHoodieBack = { Black: asset("hoodies/oni-sword-black-back.png"), Gray: asset("hoodies/oni-sword-gray-back.png"), White: asset("hoodies/oni-sword-white-back.png") };
-const oniMaskHoodieBack = { Gray: asset("hoodies/oni-mask-gray-back.png"), Black: asset("hoodies/oni-mask-black-back.png"), White: asset("hoodies/oni-mask-white-back.png") };
-const roseHoodieBack = { White: asset("hoodies/rose-white-back.png"), Black: asset("hoodies/rose-black-back.png"), Gray: asset("hoodies/rose-gray-back.png") };
+const fallenSwordHoodieBack = { White: asset("hoodies/fallen-sword-white-back-printed.png"), Black: asset("hoodies/fallen-sword-black-back-printed.png"), Gray: asset("hoodies/fallen-sword-gray-back-printed.png") };
+const oniSwordHoodieBack = { Black: asset("hoodies/oni-sword-black-back-printed.png"), Gray: asset("hoodies/oni-sword-gray-back-printed.png"), White: asset("hoodies/oni-sword-white-back-printed.png") };
+const oniMaskHoodieBack = { Gray: asset("hoodies/oni-mask-gray-back-printed.png"), Black: asset("hoodies/oni-mask-black-back-printed.png"), White: asset("hoodies/oni-mask-white-back-printed.png") };
+const roseHoodieBack = { White: asset("hoodies/rose-white-back-printed.png"), Black: asset("hoodies/rose-black-back-printed.png"), Gray: asset("hoodies/rose-gray-back-printed.png") };
 
 // Prices and stock deliberately stay unpublished until the owner provides them.
 export const products: Product[] = [
@@ -158,10 +156,10 @@ export const products: Product[] = [
   { id: 3, name: "Oni Mask", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "Original BH Oni Mask artwork. Choose the colour and cotton weight that feel right for you.", ...withProductImages(oniMask, oniMaskLookbook, undefined, oniMaskBack) },
   { id: 4, name: "Rose", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "Original BH Rose artwork. Choose the colour and cotton weight that feel right for you.", ...withProductImages(rose, roseLookbook, undefined, roseBack) },
   { id: 5, name: "Loose Shorts", category: "Shorts", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "BH loose shorts, available in multiple colours.", ...withProductImages(looseShorts, [], []) },
-  { id: 6, name: "Fallen Sword Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Fallen Sword artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...withProductImages(fallenSwordHoodie, [asset("lookbook/fallen-sword-hoodie-parking.png"), asset("lookbook/fallen-sword-hoodie-model.png")], [], fallenSwordHoodieBack), backPrint: asset("hoodies/fallen-sword-back-print.png") },
-  { id: 7, name: "Oni Sword Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Oni Sword artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...withProductImages(oniSwordHoodie, [asset("lookbook/oni-sword-street.png"), asset("lookbook/oni-sword-hoodie-parking.png"), asset("lookbook/oni-sword-hoodie-model.png")], [], oniSwordHoodieBack), backPrint: asset("hoodies/oni-sword-back-print.png") },
-  { id: 8, name: "Oni Mask Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Oni Mask artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...withProductImages(oniMaskHoodie, [asset("lookbook/oni-mask-hoodie-parking.png"), asset("lookbook/oni-mask-hoodie-model.png")], [], oniMaskHoodieBack), backPrint: asset("hoodies/oni-mask-back-print.png") },
-  { id: 9, name: "Rose Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Rose artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...withProductImages(roseHoodie, [asset("lookbook/rose-street.png"), asset("lookbook/rose-hoodie-parking.png"), asset("lookbook/rose-hoodie-model.png")], [], roseHoodieBack), backPrint: asset("hoodies/rose-back-print.png") },
+  { id: 6, name: "Fallen Sword Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Fallen Sword artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...withProductImages(fallenSwordHoodie, [asset("lookbook/fallen-sword-hoodie-parking.png"), asset("lookbook/fallen-sword-hoodie-model.png")], [], fallenSwordHoodieBack) },
+  { id: 7, name: "Oni Sword Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Oni Sword artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...withProductImages(oniSwordHoodie, [asset("lookbook/oni-sword-street.png"), asset("lookbook/oni-sword-hoodie-parking.png"), asset("lookbook/oni-sword-hoodie-model.png")], [], oniSwordHoodieBack) },
+  { id: 8, name: "Oni Mask Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Oni Mask artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...withProductImages(oniMaskHoodie, [asset("lookbook/oni-mask-hoodie-parking.png"), asset("lookbook/oni-mask-hoodie-model.png")], [], oniMaskHoodieBack) },
+  { id: 9, name: "Rose Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Rose artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...withProductImages(roseHoodie, [asset("lookbook/rose-street.png"), asset("lookbook/rose-hoodie-parking.png"), asset("lookbook/rose-hoodie-model.png")], [], roseHoodieBack) },
   { id: 10, name: "BH Washed Cap", category: "Accessories", price: "Coming soon", rating: 0, reviews: 0, tag: "BH accessory", description: "A washed black six-panel cap for the everyday rotation.", ...withProductImages(accessories, [], []) },
   { id: 11, name: "BH Crossbody", category: "Accessories", price: "Coming soon", rating: 0, reviews: 0, tag: "BH accessory", description: "Compact black nylon crossbody for daily essentials.", ...withProductImages(crossbody, [], []) },
   { id: 12, name: "Oni Art Book", category: "Anime", price: "Coming soon", rating: 0, reviews: 0, tag: "BH background", description: "An original BH manga-inspired art-book placeholder for the future collection.", ...withProductImages(animeArtBook, [], []) },
