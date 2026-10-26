@@ -16,6 +16,10 @@ export type Product = {
   colorHexes?: Record<string, string>;
   cottonWeights?: ("220g" | "260g")[];
   lookbookImages?: string[];
+  prices?: { USD: number | null; ILS: number | null };
+  gsmPrices?: Record<"220g" | "260g", { USD: number | null; ILS: number | null }>;
+  selectedSize?: string;
+  selectedWeight?: "220g" | "260g";
 };
 
 const asset = (path: string) => `/catalog/${path.split("/").map(encodeURIComponent).join("/")}`;
@@ -149,12 +153,17 @@ const oniSwordHoodieBack = { Black: asset("hoodies/oni-sword-black-back-printed.
 const oniMaskHoodieBack = { Gray: asset("hoodies/oni-mask-gray-back-printed.jpg"), Black: asset("hoodies/oni-mask-black-back-printed.jpg"), White: asset("hoodies/oni-mask-white-back-printed.jpg") };
 const roseHoodieBack = { White: asset("hoodies/rose-white-back-printed.jpg"), Black: asset("hoodies/rose-black-back-printed.jpg"), Gray: asset("hoodies/rose-gray-back-printed.jpg") };
 
+const teeOptions = {
+  sizes: ["S", "M", "L", "XL", "2XL"],
+  gsmPrices: { "220g": { USD: null, ILS: null }, "260g": { USD: null, ILS: null } },
+};
+
 // Prices and stock deliberately stay unpublished until the owner provides them.
 export const products: Product[] = [
-  { id: 1, name: "Fallen Sword", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "Original BH Fallen Sword artwork. Choose the colour and cotton weight that feel right for you.", ...withProductImages(fallenSword, fallenSwordLookbook, undefined, fallenSwordBack) },
-  { id: 2, name: "Oni Sword", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "Original BH Oni Sword artwork. Choose the colour and cotton weight that feel right for you.", ...withProductImages(oniBlade, oniSwordLookbook, undefined, oniBladeBack) },
-  { id: 3, name: "Oni Mask", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "Original BH Oni Mask artwork. Choose the colour and cotton weight that feel right for you.", ...withProductImages(oniMask, oniMaskLookbook, undefined, oniMaskBack) },
-  { id: 4, name: "Rose", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "Original BH Rose artwork. Choose the colour and cotton weight that feel right for you.", ...withProductImages(rose, roseLookbook, undefined, roseBack) },
+  { id: 1, name: "Fallen Sword", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "Fallen Sword brings a striking blade, bold Japanese lettering and a red sun into one graphic statement. An oversized silhouette with room to move; choose 220 GSM for a lighter feel or 260 GSM for extra substance.", ...withProductImages(fallenSword, fallenSwordLookbook, undefined, fallenSwordBack), ...teeOptions },
+  { id: 2, name: "Oni Blade", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "Crossed katana blades meet cherry blossom in Oni Blade — a balance of sharp lines and delicate detail. An oversized everyday silhouette, available in 220 GSM or the heavier 260 GSM.", ...withProductImages(oniBlade, oniSwordLookbook, undefined, oniBladeBack), ...teeOptions },
+  { id: 3, name: "Oni Mask", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "A fierce Oni mask, graphic framing and red accents give Oni Mask its unmistakable edge. Built around an oversized silhouette, with your choice of 220 GSM or a heavier 260 GSM feel.", ...withProductImages(oniMask, oniMaskLookbook, undefined, oniMaskBack), ...teeOptions },
+  { id: 4, name: "Rose", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "A detailed rose and flowing lettering bring a quieter statement to Rose. An oversized silhouette that lets the artwork speak, available in 220 GSM or the more substantial 260 GSM.", ...withProductImages(rose, roseLookbook, undefined, roseBack), ...teeOptions },
   { id: 5, name: "Loose Shorts", category: "Shorts", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "BH loose shorts, available in multiple colours.", ...withProductImages(looseShorts, [], []) },
   { id: 6, name: "Fallen Sword Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Fallen Sword artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...withProductImages(fallenSwordHoodie, [asset("lookbook/fallen-sword-hoodie-parking.png"), asset("lookbook/fallen-sword-hoodie-model.png")], [], fallenSwordHoodieBack) },
   { id: 7, name: "Oni Sword Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Oni Sword artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...withProductImages(oniSwordHoodie, [asset("lookbook/oni-sword-street.png"), asset("lookbook/oni-sword-hoodie-parking.png"), asset("lookbook/oni-sword-hoodie-model.png")], [], oniSwordHoodieBack) },
