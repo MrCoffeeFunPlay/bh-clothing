@@ -11,3 +11,4 @@ python3 -I tools/tee-mockups/build.py <reference-tee.webp> <print-files-folder> 
 - Front prints are placed as a 10×10 cm left-chest canvas, back prints as a 30×38 cm canvas centred ~9 cm below the collar.
 - Dark garments use the "black-shirt" print versions, light garments the "white-shirt" versions.
 - To add a colour: add it to `COLOURS` here, then to `teeColourHexes` and `teeColoursByWeight` in `src/catalog.ts`, and copy the new images into `public/catalog/tees/`.
+- `new/` holds print files prepared from the owner's files: the Fallen Sword back with both side-text columns, and the Oni Blade back with white Japanese text for dark garments.

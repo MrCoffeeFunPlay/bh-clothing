@@ -19,9 +19,12 @@ COLOURS = {  # name: (hex, ink) — ink "dark" = garment is dark, use the black-
 
 DESIGNS = {
     "fallen-sword": {"front": {"dark": "fronts/fronts-10x10/fallen-sword-front-option2-black-shirt.png", "light": "fronts/fronts-10x10/fallen-sword-front-option2-white-shirt.png"},
-                      "back": {"dark": "backs/backs-30x38/fallen-sword-back-black-shirt.png", "light": "backs/backs-30x38/fallen-sword-back-white-shirt.png"}},
+                      # back print with the two side-text columns (layout from the owner's sample), 31.86 x 38.59 cm
+                      "back": {"dark": "new/fallen-sword-back-with-side-text-black-shirt.png", "light": "new/fallen-sword-back-with-side-text-white-shirt.png"},
+                      "back_canvas_cm": (31.86, 38.59), "back_offset_cm": (-0.93, -0.59)},
     "oni-blade": {"front": {"dark": "fronts/fronts-10x10/oni-blade-front.png", "light": "fronts/fronts-10x10/oni-blade-front.png"},
-                   "back": {"dark": "backs/backs-30x38/oni-blade-back.png", "light": "backs/backs-30x38/oni-blade-back.png"}},
+                   # dark garments: the same back with the small Japanese text in white
+                   "back": {"dark": "new/oni-blade-back-white-text.png", "light": "backs/backs-30x38/oni-blade-back.png"}},
     "oni-mask": {"front": {"dark": "fronts/fronts-10x10/oni-mask-front-black-shirt.png", "light": "fronts/fronts-10x10/oni-mask-front-white-shirt.png"},
                   "back": {"dark": "backs/backs-30x38/oni-mask-back-black-shirt.png", "light": "backs/backs-30x38/oni-mask-back-white-shirt.png"}},
     "rose": {"front": {"dark": "fronts/fronts-10x10/rose-front-black-shirt.png", "light": "fronts/fronts-10x10/rose-front-white-shirt.png"},
@@ -176,7 +179,9 @@ def main():
                     place(img, ratio, art, (cw, ch), cx - cw * PX_PER_CM / 2, cy - ch * PX_PER_CM / 2)
                 else:
                     cw, ch = BACK["canvas_cm"]
-                    place(img, ratio, art, (cw, ch), BACK["centre_x"] - cw * PX_PER_CM / 2, BACK["top"])
+                    left, top = BACK["centre_x"] - cw * PX_PER_CM / 2, BACK["top"]
+                    dx, dy = DESIGNS[slug].get("back_offset_cm", (0, 0))
+                    place(img, ratio, art, DESIGNS[slug].get("back_canvas_cm", (cw, ch)), left + dx * PX_PER_CM, top + dy * PX_PER_CM)
                 name = f"{colour.lower().replace(' ', '-')}-{view}.jpg"
                 (out / slug).mkdir(parents=True, exist_ok=True)
                 Image.fromarray(np.clip(img, 0, 255).astype(np.uint8)).save(out / slug / name, quality=84, optimize=True, progressive=True)

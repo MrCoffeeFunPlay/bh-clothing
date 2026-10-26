@@ -74,10 +74,10 @@ const animeWallScroll = {
   Black: asset("anime/oni-wall-scroll.png"),
 };
 
-const fallenSwordLookbook = [asset("lookbook/fallen-sword-street.png"), asset("lookbook/fallen-sword-parking.png"), asset("lookbook/fallen-sword-black-model.png"), asset("lookbook/fallen-sword-white-model.png"), asset("lookbook/fallen-sword-purple-model.png")];
-const oniSwordLookbook = [asset("lookbook/oni-sword-street.png"), asset("lookbook/oni-sword-parking.png"), asset("lookbook/oni-sword-black-model.png"), asset("lookbook/oni-sword-white-model.png"), asset("lookbook/oni-sword-purple-model.png")];
-const oniMaskLookbook = [asset("lookbook/oni-mask-street.png"), asset("lookbook/oni-mask-parking.png"), asset("lookbook/oni-mask-black-model.png"), asset("lookbook/oni-mask-white-model.png"), asset("lookbook/oni-mask-purple-model.png")];
-const roseLookbook = [asset("lookbook/rose-street.png"), asset("lookbook/rose-parking.png"), asset("lookbook/rose-black-model.png"), asset("lookbook/rose-white-model.png"), asset("lookbook/rose-purple-model.png")];
+const fallenSwordLookbook = [asset("lookbook/fallen-sword-street.png"), asset("lookbook/fallen-sword-parking.png"), asset("lookbook/fallen-sword-black-model.png")];
+const oniSwordLookbook = [asset("lookbook/oni-sword-street.png"), asset("lookbook/oni-sword-parking.png"), asset("lookbook/oni-sword-black-model.png"), asset("lookbook/oni-sword-white-model.png")];
+const oniMaskLookbook = [asset("lookbook/oni-mask-street.png"), asset("lookbook/oni-mask-parking.png"), asset("lookbook/oni-mask-black-model.png")];
+const roseLookbook = [asset("lookbook/rose-street.png"), asset("lookbook/rose-parking.png"), asset("lookbook/rose-black-model.png")];
 
 const fallenSwordHoodie = { White: asset("hoodies/fallen-sword-white-new.png"), Black: asset("hoodies/fallen-sword-black-new.png"), Gray: asset("hoodies/fallen-sword-gray-new.png") };
 const oniSwordHoodie = { Black: asset("hoodies/oni-sword-black-new.png"), Gray: asset("hoodies/oni-sword-gray-new.png"), White: asset("hoodies/oni-sword-white-new.png") };
