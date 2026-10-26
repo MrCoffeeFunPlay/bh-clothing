@@ -1,3 +1,4 @@
+import type { Sale } from "./pricing";
 export type Product = {
   id: number;
   name: string;
@@ -16,6 +17,7 @@ export type Product = {
   colorHexes?: Record<string, string>;
   cottonWeights?: ("220g" | "260g")[];
   lookbookImages?: string[];
+  sale?: Sale;
   prices?: { USD: number | null; ILS: number | null };
   gsmPrices?: Record<"220g" | "260g", { USD: number | null; ILS: number | null }>;
   selectedSize?: string;
@@ -155,10 +157,11 @@ const roseHoodieBack = { White: asset("hoodies/rose-white-back-printed.jpg"), Bl
 
 const teeOptions = {
   sizes: ["S", "M", "L", "XL", "2XL"],
-  gsmPrices: { "220g": { USD: null, ILS: null }, "260g": { USD: null, ILS: null } },
+  gsmPrices: { "220g": { USD: null, ILS: 120 }, "260g": { USD: null, ILS: 150 } },
+  sale: { enabled: true, title: "BH Tee Launch Price", kind: "amount" as const, value: 10.01, currency: "ILS" as const, startsAt: "", endsAt: "" },
 };
 
-// Prices and stock deliberately stay unpublished until the owner provides them.
+// Owner-provided preview tee prices are in ILS; USD and other launch prices remain unpublished.
 export const products: Product[] = [
   { id: 1, name: "Fallen Sword", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "Fallen Sword brings a striking blade, bold Japanese lettering and a red sun into one graphic statement. An oversized silhouette with room to move; choose 220 GSM for a lighter feel or 260 GSM for extra substance.", ...withProductImages(fallenSword, fallenSwordLookbook, undefined, fallenSwordBack), ...teeOptions },
   { id: 2, name: "Oni Blade", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "Crossed katana blades meet cherry blossom in Oni Blade — a balance of sharp lines and delicate detail. An oversized everyday silhouette, available in 220 GSM or the heavier 260 GSM.", ...withProductImages(oniBlade, oniSwordLookbook, undefined, oniBladeBack), ...teeOptions },

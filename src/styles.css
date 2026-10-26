@@ -413,3 +413,22 @@ footer { background:var(--ink); color:#f9f5ed; padding:45px 5.4vw 25px; }
 .price-editor p { font-size: 13px; margin-bottom: 14px; }
 .price-editor-row { display: grid; grid-template-columns: 90px minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 14px; margin-top: 12px; }
 @media (max-width: 600px) { .price-editor-row { grid-template-columns: 1fr 1fr; } .price-editor-row > b { grid-column: 1 / -1; } }
+
+.product-price { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+.product-price del { color: #8a8076; font-size: .75em; font-weight: 400; }
+.sale-price-badge { font-size: 10px; padding: 3px 6px; border-radius: 4px; background: #e5dbc9; color: #553c26; letter-spacing: .06em; text-transform: uppercase; }
+.sale-fields { border: 1px solid #d8cabb; border-radius: 12px; padding: 18px; min-width: 0; margin-block: 14px; }
+.sale-fields legend { padding-inline: 8px; font-weight: 600; }
+.sale-fields label { display: flex; flex-direction: column; gap: 8px; font-size: 13px; margin-block: 12px; }
+.sale-fields .sale-toggle { flex-direction: row; align-items: center; }
+.sale-fields .sale-toggle input { width: auto; }
+.sale-fields input, .sale-fields select { box-sizing: border-box; width: 100%; min-width: 0; padding: 12px; border: 1px solid #cdbfae; border-radius: 6px; background: #fffaf3; color: #2d251f; }
+.sale-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
+.sale-fields small, .sale-preview-note { color: #75685b; font-size: 12px; line-height: 1.7; }
+.store-sale-panel { padding: 24px; border: 1px solid #d8cabb; border-radius: 14px; margin-bottom: 32px; }
+.sale-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.sale-saving { color: #6b4e2b; }
+.announcement small { font-size: inherit; }
+@media (max-width: 600px) { .sale-grid { grid-template-columns: 1fr; } .store-sale-panel { padding: 14px; } }
+
+.announcement { flex-wrap: wrap; text-align: center; }
