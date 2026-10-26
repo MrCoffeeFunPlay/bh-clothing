@@ -21,7 +21,7 @@ DESIGNS = {
     "fallen-sword": {"front": {"dark": "fronts/fronts-10x10/fallen-sword-front-option2-black-shirt.png", "light": "fronts/fronts-10x10/fallen-sword-front-option2-white-shirt.png"},
                       # back print with the two side-text columns (layout from the owner's sample), 31.86 x 38.59 cm
                       "back": {"dark": "new/fallen-sword-back-with-side-text-black-shirt.png", "light": "new/fallen-sword-back-with-side-text-white-shirt.png"},
-                      "back_canvas_cm": (31.86, 38.59), "back_offset_cm": (-0.93, -0.59)},
+                      "back_canvas_cm": (31.86, 38.59)},
     "oni-blade": {"front": {"dark": "fronts/fronts-10x10/oni-blade-front.png", "light": "fronts/fronts-10x10/oni-blade-front.png"},
                    # dark garments: the same back with the small Japanese text in white
                    "back": {"dark": "new/oni-blade-back-white-text.png", "light": "backs/backs-30x38/oni-blade-back.png"}},
@@ -33,7 +33,10 @@ DESIGNS = {
 
 # Print placement on the reference (in reference pixels): canvas centre and canvas size in cm.
 FRONT = {"centre": (629, 523), "canvas_cm": (10, 10)}          # left chest, matches the reference print
-BACK = {"top": 352, "centre_x": 511, "canvas_cm": (30, 38)}     # centred, ~9 cm below the back collar
+# Back prints sit in the middle of the back, like the owner's reference photos: the artwork's visual centre is placed
+# at a fraction of the collar-to-hem height (per design, measured on the references), at its real printed size.
+BACK = {"collar": 253, "hem": 1238, "centre_x": 511, "canvas_cm": (30, 38), "centre": 0.47}
+BACK_CENTRE = {"fallen-sword": 0.46, "oni-blade": 0.43, "oni-mask": 0.47, "rose": 0.47}
 
 
 def box(x, r, axis):
@@ -178,10 +181,12 @@ def main():
                     cw, ch = FRONT["canvas_cm"]; cx, cy = FRONT["centre"]
                     place(img, ratio, art, (cw, ch), cx - cw * PX_PER_CM / 2, cy - ch * PX_PER_CM / 2)
                 else:
-                    cw, ch = BACK["canvas_cm"]
-                    left, top = BACK["centre_x"] - cw * PX_PER_CM / 2, BACK["top"]
-                    dx, dy = DESIGNS[slug].get("back_offset_cm", (0, 0))
-                    place(img, ratio, art, DESIGNS[slug].get("back_canvas_cm", (cw, ch)), left + dx * PX_PER_CM, top + dy * PX_PER_CM)
+                    cw, ch = DESIGNS[slug].get("back_canvas_cm", BACK["canvas_cm"])
+                    bbox = Image.open(art).getchannel("A").point(lambda v: 255 if v > 40 else 0).getbbox()
+                    art_h = Image.open(art).height
+                    art_mid_cm = (bbox[1] + bbox[3]) / 2 / art_h * ch          # visual centre of the artwork inside its canvas
+                    target = BACK["collar"] + BACK_CENTRE.get(slug, BACK["centre"]) * (BACK["hem"] - BACK["collar"])
+                    place(img, ratio, art, (cw, ch), BACK["centre_x"] - cw * PX_PER_CM / 2, target - art_mid_cm * PX_PER_CM)
                 name = f"{colour.lower().replace(' ', '-')}-{view}.jpg"
                 (out / slug).mkdir(parents=True, exist_ok=True)
                 Image.fromarray(np.clip(img, 0, 255).astype(np.uint8)).save(out / slug / name, quality=84, optimize=True, progressive=True)
