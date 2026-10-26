@@ -22,9 +22,19 @@ export function productOriginalAmount(product: Product, currency: Currency, weig
   if (currency !== "USD" || !/^\$\d+(\.\d+)?$/.test(product.price)) return null;
   return validPrice(Number(product.price.slice(1)));
 }
+// Converts an ILS price to USD at the given rate and rounds up to the next .99 (35.69 -> 35.99).
+export const usdFromIls = (ils: number, rate: number) => money(Math.floor(money(ils / rate)) + 0.99);
+// A fixed sale price set per fabric weight and currency; only used while it is below the original price.
+export function productSalePrice(product: Product, currency: Currency, weight = product.selectedWeight || product.cottonWeights?.[0]) {
+  const original = productOriginalAmount(product, currency, weight);
+  const sale = weight ? product.gsmSalePrices?.[weight]?.[currency] : null;
+  return original !== null && typeof sale === "number" && Number.isFinite(sale) && sale > 0 && sale < original ? money(sale) : null;
+}
 export function productAmount(product: Product, currency: Currency, weight = product.selectedWeight || product.cottonWeights?.[0], now = Date.now()) {
   const original = productOriginalAmount(product, currency, weight);
-  return original === null ? null : saleAmount(original, product.sale, currency, now);
+  if (original === null) return null;
+  // One product discount only: a fixed sale price takes the place of a timed product sale.
+  return productSalePrice(product, currency, weight) ?? saleAmount(original, product.sale, currency, now);
 }
 export function cartTotals(items: Product[], currency: Currency, sale?: Sale, now = Date.now()) {
   const amounts = items.map(item => productAmount(item, currency, undefined, now));
