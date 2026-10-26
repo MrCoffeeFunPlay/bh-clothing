@@ -74,10 +74,6 @@ const animeWallScroll = {
   Black: asset("anime/oni-wall-scroll.png"),
 };
 
-const fallenSwordLookbook = [asset("lookbook/fallen-sword-street.png"), asset("lookbook/fallen-sword-parking.png"), asset("lookbook/fallen-sword-black-model.png")];
-const oniSwordLookbook = [asset("lookbook/oni-sword-street.png"), asset("lookbook/oni-sword-parking.png"), asset("lookbook/oni-sword-black-model.png"), asset("lookbook/oni-sword-white-model.png")];
-const oniMaskLookbook = [asset("lookbook/oni-mask-street.png"), asset("lookbook/oni-mask-parking.png"), asset("lookbook/oni-mask-black-model.png")];
-const roseLookbook = [asset("lookbook/rose-street.png"), asset("lookbook/rose-parking.png"), asset("lookbook/rose-black-model.png")];
 
 const fallenSwordHoodie = { White: asset("hoodies/fallen-sword-white-new.png"), Black: asset("hoodies/fallen-sword-black-new.png"), Gray: asset("hoodies/fallen-sword-gray-new.png") };
 const oniSwordHoodie = { Black: asset("hoodies/oni-sword-black-new.png"), Gray: asset("hoodies/oni-sword-gray-new.png"), White: asset("hoodies/oni-sword-white-new.png") };
@@ -100,8 +96,9 @@ export const teeColoursByWeight: Record<"220g" | "260g", string[]> = {
 };
 const teeColours = Object.keys(teeColourHexes).filter(colour => Object.values(teeColoursByWeight).some(list => list.includes(colour)));
 const colourSlug = (colour: string) => colour.toLowerCase().replace(/\s+/g, "-");
-const teeImages = (design: string, lookbookImages: string[]) => ({
-  ...withProductImages(Object.fromEntries(teeColours.map(colour => [colour, asset(`tees/${design}/${colourSlug(colour)}-front.jpg`)])), lookbookImages, ["220g", "260g"],
+// Tees show only their front and back images for now (no model photos).
+const teeImages = (design: string) => ({
+  ...withProductImages(Object.fromEntries(teeColours.map(colour => [colour, asset(`tees/${design}/${colourSlug(colour)}-front.jpg`)])), [], ["220g", "260g"],
     Object.fromEntries(teeColours.map(colour => [colour, asset(`tees/${design}/${colourSlug(colour)}-back.jpg`)]))),
   colorHexes: teeColourHexes,
   weightColors: teeColoursByWeight,
@@ -117,10 +114,10 @@ const teeOptions = {
 };
 
 export const products: Product[] = [
-  { id: 1, name: "Fallen Sword", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "Fallen Sword brings a striking blade, bold Japanese lettering and a red sun into one graphic statement. An oversized silhouette with room to move; choose 220 GSM for a lighter feel or 260 GSM for extra substance.", ...teeImages("fallen-sword", fallenSwordLookbook), ...teeOptions },
-  { id: 2, name: "Oni Blade", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "Crossed katana blades meet cherry blossom in Oni Blade — a balance of sharp lines and delicate detail. An oversized everyday silhouette, available in 220 GSM or the heavier 260 GSM.", ...teeImages("oni-blade", oniSwordLookbook), ...teeOptions },
-  { id: 3, name: "Oni Mask", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "A fierce Oni mask, graphic framing and red accents give Oni Mask its unmistakable edge. Built around an oversized silhouette, with your choice of 220 GSM or a heavier 260 GSM feel.", ...teeImages("oni-mask", oniMaskLookbook), ...teeOptions },
-  { id: 4, name: "Rose", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "A detailed rose and flowing lettering bring a quieter statement to Rose. An oversized silhouette that lets the artwork speak, available in 220 GSM or the more substantial 260 GSM.", ...teeImages("rose", roseLookbook), ...teeOptions },
+  { id: 1, name: "Fallen Sword", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "Fallen Sword brings a striking blade, bold Japanese lettering and a red sun into one graphic statement. An oversized silhouette with room to move; choose 220 GSM for a lighter feel or 260 GSM for extra substance.", ...teeImages("fallen-sword"), ...teeOptions },
+  { id: 2, name: "Oni Blade", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "Crossed katana blades meet cherry blossom in Oni Blade — a balance of sharp lines and delicate detail. An oversized everyday silhouette, available in 220 GSM or the heavier 260 GSM.", ...teeImages("oni-blade"), ...teeOptions },
+  { id: 3, name: "Oni Mask", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "A fierce Oni mask, graphic framing and red accents give Oni Mask its unmistakable edge. Built around an oversized silhouette, with your choice of 220 GSM or a heavier 260 GSM feel.", ...teeImages("oni-mask"), ...teeOptions },
+  { id: 4, name: "Rose", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "A detailed rose and flowing lettering bring a quieter statement to Rose. An oversized silhouette that lets the artwork speak, available in 220 GSM or the more substantial 260 GSM.", ...teeImages("rose"), ...teeOptions },
   { id: 5, name: "Loose Shorts", category: "Shorts", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "BH loose shorts, available in multiple colours.", ...withProductImages(looseShorts, [], []) },
   { id: 6, name: "Fallen Sword Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Fallen Sword artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...withProductImages(fallenSwordHoodie, [asset("lookbook/fallen-sword-hoodie-parking.png"), asset("lookbook/fallen-sword-hoodie-model.png")], [], fallenSwordHoodieBack) },
   { id: 7, name: "Oni Sword Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Oni Sword artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...withProductImages(oniSwordHoodie, [asset("lookbook/oni-sword-street.png"), asset("lookbook/oni-sword-hoodie-parking.png"), asset("lookbook/oni-sword-hoodie-model.png")], [], oniSwordHoodieBack) },

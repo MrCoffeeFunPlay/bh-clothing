@@ -113,29 +113,50 @@ def prepare(reference):
 
 
 def back_shading(shade, tee, xx, yy):
-    """Turn the front neckline into a plain back with a shallow ribbed back collar."""
+    """Turn the front neckline into a plain back: keep the back collar band along the top edge, and rebuild the
+    fabric below it (where the front view shows the neck opening and front collar) from the surrounding fabric."""
     s = shade.copy()
-    d = ((xx - 522) / 150.0) ** 2 + ((yy - 322) / 78.0) ** 2
-    neck = d <= 1.0
-    weight = np.clip((1.15 - d) / 0.3, 0, 1) * tee          # soft edge so the repaint blends into the fabric
-    top = np.full(tee.shape[1], -1, dtype=float)
-    for x in range(360, 690):
+    X0, X1, YB = 360, 690, 470                                  # area to rebuild (reference px)
+    top = np.full(tee.shape[1], -1.0)
+    for x in range(X0, X1):
         col = np.where(tee[:, x])[0]
         if col.size: top[x] = col[0]
-    xs = np.arange(360, 690)
+    xs = np.arange(X0, X1)
     top[xs] = np.convolve(np.pad(top[xs], 12, mode="edge"), np.ones(25) / 25, mode="same")[12:-12]
-    base = blur_fill(s, tee & (d > 1.25), 60)
-    grain = s - gblur(s, 3)
-    grain = np.roll(grain, -330, axis=0)                      # borrow plain fabric grain from lower on the body
-    plain = base + grain
-    rib = np.zeros_like(s); seam = np.zeros_like(s)
-    for x in range(360, 690):
-        if top[x] >= 0:
-            t = int(round(top[x]))
-            rib[t:t + 15, x] = 1; seam[t + 15:t + 17, x] = 1
-    plain = np.where(rib > 0, plain * 0.93 + 1.5 * np.sin(xx / 1.4), plain)
-    plain = np.where(seam > 0, plain * 0.82, plain)
-    return s * (1 - weight) + plain * weight
+    BAND = 17
+    below = np.zeros_like(tee)
+    for x in range(X0, X1):
+        below[int(round(top[x])) + BAND:YB, x] = True
+    below &= tee
+    # smooth light level: a Coons patch from fabric-only values on the left, right and bottom edges of the area,
+    # following the curved collar line at the top (top edge interpolated between the two sides)
+    low = blur_fill(gblur(s, 3), tee & ~below, 20)
+    ytop = top + BAND
+    yl, yr = ytop[X0], ytop[X1 - 1]
+    smooth = s.copy()
+    for x in range(X0, X1):
+        u = (x - X0) / (X1 - 1 - X0)
+        ys = np.arange(int(round(ytop[x])), YB)
+        v = (ys - ytop[x]) / (YB - 1 - ytop[x])
+        Lv = low[np.clip(np.round(yl + v * (YB - 1 - yl)).astype(int), 0, None), X0]
+        Rv = low[np.clip(np.round(yr + v * (YB - 1 - yr)).astype(int), 0, None), X1 - 1]
+        T0, T1 = low[int(round(yl)), X0], low[int(round(yr)), X1 - 1]
+        Bx, B0, B1 = low[YB - 1, x], low[YB - 1, X0], low[YB - 1, X1 - 1]
+        Tx = (1 - u) * T0 + u * T1
+        smooth[ys, x] = (1 - v) * Tx + v * Bx + (1 - u) * Lv + u * Rv \
+            - ((1 - u) * (1 - v) * T0 + u * (1 - v) * T1 + (1 - u) * v * B0 + u * v * B1)
+    grain = np.roll(s - gblur(s, 3), -330, axis=0)            # plain fabric grain from lower on the body
+    rebuilt = smooth + np.clip(grain, -10, 10)
+    # soft edges at the sides and bottom of the rebuilt area so it blends into the fabric
+    fx = np.clip(np.minimum(xx - X0, X1 - 1 - xx) / 25.0, 0, 1)
+    fy = np.clip((YB - 1 - yy) / 25.0, 0, 1)
+    w = below * fx * fy
+    s = s * (1 - w) + rebuilt * w
+    # back collar seam just under the band
+    for x in range(X0 + 20, X1 - 20):
+        t = int(round(top[x])) + BAND
+        s[t:t + 2, x] = s[t:t + 2, x] * 0.85
+    return s
 
 
 def recolour(a, tee, shade, hexcol):
