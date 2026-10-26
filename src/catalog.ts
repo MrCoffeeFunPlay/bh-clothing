@@ -16,6 +16,7 @@ export type Product = {
   colorHexes?: Record<string, string>;
   cottonWeights?: ("220g" | "260g")[];
   lookbookImages?: string[];
+  prices?: { USD: number | null; ILS: number | null };
   gsmPrices?: Record<"220g" | "260g", { USD: number | null; ILS: number | null }>;
   selectedSize?: string;
   selectedWeight?: "220g" | "260g";

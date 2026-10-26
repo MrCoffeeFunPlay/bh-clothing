@@ -407,3 +407,9 @@ footer { background:var(--ink); color:#f9f5ed; padding:45px 5.4vw 25px; }
 /* Currency uses the existing header palette and spacing. */
 .currency-select{font:inherit;font-size:11px;color:inherit;background:transparent;border:1px solid #d8cec2;border-radius:20px;padding:7px 9px;max-width:90px;cursor:pointer;}
 @media(max-width:600px){.currency-select{font-size:10px;padding:5px;max-width:72px;}}
+
+.price-editor { border: 1px solid #d8cabb; border-radius: 12px; padding: 18px; min-width: 0; }
+.price-editor legend { padding: 0 8px; font-weight: 600; }
+.price-editor p { font-size: 13px; margin-bottom: 14px; }
+.price-editor-row { display: grid; grid-template-columns: 90px minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 14px; margin-top: 12px; }
+@media (max-width: 600px) { .price-editor-row { grid-template-columns: 1fr 1fr; } .price-editor-row > b { grid-column: 1 / -1; } }
