@@ -116,6 +116,9 @@ const constraintMessages: [RegExp, string][] = [
   [/products_slug_key|duplicate key/, "Something with this name already exists. Choose a different name."],
   [/products_check|sale_value_check/, "Check the sale: the discount must be more than 0 (up to 100%) and the end must be after the start."],
   [/hex_check/, "Choose a valid colour swatch."],
+  [/orders_total_check/, "The discount can't be more than the items plus shipping."],
+  [/order_items_quantity_check/, "Each item needs a quantity between 1 and 99."],
+  [/orders_customer_name_check/, "Add the customer's name."],
   [/automations_days_check/, "Days must be between 0 and 365."],
   [/automations_(name|subject|body)_check/, "Fill in the name, subject and message (and keep them within the length limit)."],
   [/tags_(name|description)_check/, "Give the tag a name of up to 30 characters (description up to 160)."],
@@ -414,3 +417,40 @@ export async function deleteAutomation(id: number, token: string) {
 // Marketing automations only count members who chose to get BH updates.
 export const automationReach = (trigger: AutomationTrigger, days: number, marketing: boolean, token: string) =>
   request<number | null>("/rest/v1/rpc/admin_automation_reach", { method: "POST", body: JSON.stringify({ rule: trigger, after_days: days, only_opted_in: marketing }) }, token);
+
+// ---------------------------------------------------------------------------------------------------------------
+// Orders. Members read their own; the owner records and updates them (admin_save_order works out the totals).
+// ---------------------------------------------------------------------------------------------------------------
+export const orderStatuses = ["new", "processing", "shipped", "delivered", "cancelled", "returned"] as const;
+export const paymentStatuses = ["unpaid", "paid", "refunded"] as const;
+export const paymentMethods = ["bit", "paybox", "bank_transfer", "cash", "card", "other"] as const;
+export type OrderStatus = (typeof orderStatuses)[number];
+export type PaymentStatus = (typeof paymentStatuses)[number];
+export type PaymentMethod = (typeof paymentMethods)[number];
+export type OrderItem = { product_id: number | null; product_name: string; colour: string; size: string; fabric_weight: string; quantity: number; unit_price: number; image: string };
+export type Order = {
+  id: number; order_number: string; customer_name: string; customer_email: string; customer_phone: string;
+  address_line: string; city: string; postal_code: string; country: string; currency: "ILS" | "USD";
+  subtotal: number; discount: number; shipping: number; total: number;
+  payment_method: PaymentMethod; payment_status: PaymentStatus; status: OrderStatus;
+  tracking_number: string; tracking_url: string; receipt_number: string; receipt_url: string; notes: string;
+  source: "manual" | "website"; created_at: string; paid_at: string | null; shipped_at: string | null; items: OrderItem[];
+};
+export type OrderDraft = Omit<Order, "id" | "order_number" | "subtotal" | "total" | "source" | "created_at" | "paid_at" | "shipped_at"> & { id?: number };
+const ORDER_SELECT = "*,items:order_items(product_id,product_name,colour,size,fabric_weight,quantity,unit_price,image,sort_order)";
+type OrderRow = Omit<Order, "items" | "subtotal" | "discount" | "shipping" | "total" | "unit_price"> & { subtotal: number | string; discount: number | string; shipping: number | string; total: number | string; items: (OrderItem & { unit_price: number | string; sort_order: number })[] };
+const orderFromRow = (row: OrderRow): Order => ({
+  ...row, subtotal: Number(row.subtotal), discount: Number(row.discount), shipping: Number(row.shipping), total: Number(row.total),
+  items: [...(row.items ?? [])].sort((a, b) => a.sort_order - b.sort_order).map(({ sort_order: _, ...item }) => ({ ...item, unit_price: Number(item.unit_price) })),
+});
+
+export const fetchMyOrders = (session: UserSession) =>
+  request<OrderRow[]>(`/rest/v1/orders?user_id=eq.${encodeURIComponent(session.userId)}&select=${ORDER_SELECT}&order=created_at.desc`, {}, session.accessToken).then(rows => (rows ?? []).map(orderFromRow));
+
+export const fetchOrders = (token: string) =>
+  request<OrderRow[]>(`/rest/v1/orders?select=${ORDER_SELECT}&order=created_at.desc&limit=500`, {}, token).then(rows => (rows ?? []).map(orderFromRow));
+
+export async function saveOrder(order: OrderDraft, token: string) {
+  const input = { ...order, customer_name: order.customer_name.trim(), customer_email: order.customer_email.trim(), receipt_number: order.receipt_number.trim() };
+  return request<number>("/rest/v1/rpc/admin_save_order", { method: "POST", body: JSON.stringify({ input }) }, token);
+}
