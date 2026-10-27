@@ -206,7 +206,7 @@ test('automations: only admins can see and change them; reach counts members who
     await as(who, async () => {
       if (who === 'visitor') await assert.rejects(db.query('select * from public.automations'), /permission denied/);
       else assert.equal((await rows('select count(*)::int as n from public.automations'))[0].n, 0, 'customers see no automations');
-      await assert.rejects(db.query(`select public.admin_automation_reach('no_sign_in', 30)`), /permission denied|not authorised/);
+      await assert.rejects(db.query(`select public.admin_automation_reach('no_sign_in', 30, true)`), /permission denied|not authorised/);
     });
   }
   await as('customer', async () => {
@@ -217,13 +217,38 @@ test('automations: only admins can see and change them; reach counts members who
   await as('admin', async () => {
     assert.deepEqual((await rows('select trigger from public.automations order by id')).map(r => r.trigger), ['welcome', 'no_sign_in', 'no_order', 'birthday', 'cart_left']);
     assert.equal((await rows('select count(*)::int as n from public.automations where active'))[0].n, 0, 'nothing is switched on by default');
-    assert.equal((await rows(`select public.admin_automation_reach('no_sign_in', 30) as n`))[0].n, 1);
-    assert.equal((await rows(`select public.admin_automation_reach('no_sign_in', 1) as n`))[0].n, 2);
+    // Marketing automations only count members who chose to get BH updates.
+    assert.equal((await rows(`select public.admin_automation_reach('no_sign_in', 30, false) as n`))[0].n, 1);
+    assert.equal((await rows(`select public.admin_automation_reach('no_sign_in', 1, false) as n`))[0].n, 2);
+    assert.equal((await rows(`select public.admin_automation_reach('no_sign_in', 1) as n`))[0].n, 0, 'nobody opted in yet');
     assert.equal((await rows(`select public.admin_automation_reach('no_order', 30) as n`))[0].n, null);
+    assert.deepEqual((await rows(`select trigger, marketing from public.automations where trigger in ('welcome', 'birthday') order by id`)).map(r => [r.trigger, r.marketing]), [['welcome', false], ['birthday', true]]);
     const id = (await rows(`insert into public.automations (name, trigger, days, subject, body) values ('Test', 'no_sign_in', 14, 'Hi {first_name}', 'Body') returning id`))[0].id;
     await db.query(`update public.automations set active = true, days = 21 where id = $1`, [id]);
     await assert.rejects(db.query(`update public.automations set days = 999 where id = $1`, [id]), /check constraint/);
     await assert.rejects(db.query(`update public.automations set trigger = 'spam_everyone' where id = $1`, [id]), /check constraint/);
     await db.query(`delete from public.automations where id = $1`, [id]);
+  });
+});
+
+test('BH updates: members choose; the database records when they said yes and the reach respects it', async () => {
+  await as('customer', async () => {
+    await db.query(`insert into public.profiles (id, marketing_opt_in, marketing_opt_in_at) values ('${CUSTOMER}', false, '2000-01-01') on conflict (id) do update set marketing_opt_in = false, marketing_opt_in_at = '2000-01-01'`);
+    assert.equal((await rows(`select marketing_opt_in_at from public.profiles where id = '${CUSTOMER}'`))[0].marketing_opt_in_at, null, 'no consent time without a yes, and it cannot be invented');
+    await db.query(`update public.profiles set marketing_opt_in = true where id = '${CUSTOMER}'`);
+    const first = (await rows(`select marketing_opt_in_at from public.profiles where id = '${CUSTOMER}'`))[0].marketing_opt_in_at;
+    assert.ok(first && Date.now() - new Date(first).getTime() < 60_000, 'consent time is now');
+    await db.query(`update public.profiles set first_name = 'Noa', marketing_opt_in_at = '2000-01-01' where id = '${CUSTOMER}'`);
+    assert.equal((await rows(`select marketing_opt_in_at from public.profiles where id = '${CUSTOMER}'`))[0].marketing_opt_in_at.getTime(), first.getTime(), 'kept while updates stay on');
+  });
+  await as('admin', async () => {
+    assert.equal((await rows(`select public.admin_automation_reach('no_sign_in', 1) as n`))[0].n, 1, 'only the member who opted in');
+  });
+  await as('customer', async () => {
+    await db.query(`update public.profiles set marketing_opt_in = false where id = '${CUSTOMER}'`);
+    assert.equal((await rows(`select marketing_opt_in_at from public.profiles where id = '${CUSTOMER}'`))[0].marketing_opt_in_at, null);
+  });
+  await as('admin', async () => {
+    assert.equal((await rows(`select public.admin_automation_reach('no_sign_in', 1) as n`))[0].n, 0, 'switching off stops marketing');
   });
 });

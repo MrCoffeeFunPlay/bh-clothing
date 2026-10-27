@@ -1,6 +1,7 @@
 // Owner area → Automations: rules ("hasn't signed in for 30 days") with the message each matching member gets.
-import { type FormEvent, useEffect, useState } from "react";
-import { Cake, Check, Clock, Info, Mail, Pencil, Plus, ShoppingBag, Trash2, UserPlus, Workflow, X } from "lucide-react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
+import { renderEmail } from "./emailTemplate";
+import { Bell, Cake, Check, Clock, Info, Mail, Pencil, Plus, ShoppingBag, Trash2, UserPlus, Workflow, X } from "lucide-react";
 import {
   automationReach, automationTriggers, deleteAutomation, fetchAutomations, saveAutomation,
   type Automation, type AutomationDraft, type AutomationTrigger, type UserSession,
@@ -26,7 +27,16 @@ export function fillMessage(text: string, automation: Pick<Automation, "days" | 
   return placeholders.reduce((filled, token) => filled.split(token).join(values[token]), text);
 }
 
-const blank = (): AutomationDraft => ({ name: "", trigger: "no_sign_in", days: 30, channel: "email", subject: "", body: "Hi {first_name},\n\n\n\n{store_link}", coupon_code: "", active: false });
+const blank = (): AutomationDraft => ({ name: "", trigger: "no_sign_in", days: 30, channel: "email", subject: "", body: "Hi {first_name},\n\n", coupon_code: "", button_label: "Visit BH Clothing", marketing: true, active: false });
+
+// The designed email in a frame, sized to its content: exactly what the member will receive.
+function EmailPreview({ draft, sample, storeLink }: { draft: AutomationDraft; sample: string; storeLink: string }) {
+  const frame = useRef<HTMLIFrameElement>(null);
+  const shown = { ...draft, coupon_code: draft.coupon_code.trim().toUpperCase() }; // codes are saved in capitals
+  const html = renderEmail({ subject: fillMessage(shown.subject || "Subject", shown, sample, storeLink), body: fillMessage(shown.body, shown, sample, "{store_link}"), buttonLabel: shown.button_label, couponCode: shown.coupon_code, storeLink, marketing: shown.marketing });
+  const fit = () => { const page = frame.current?.contentDocument?.body; if (page && frame.current) frame.current.style.height = `${page.scrollHeight + 4}px`; };
+  return <aside className="email-preview" aria-label="Email preview"><p className="eyebrow"><Mail size={13}/> PREVIEW · TO {sample.toUpperCase()} (EXAMPLE MEMBER)</p><iframe ref={frame} title="Email preview" srcDoc={html} onLoad={fit} sandbox="allow-same-origin"/></aside>;
+}
 
 export function AutomationsAdmin({ freshSession }: { freshSession?: Fresh }) {
   const sample = "Dana"; // the preview shows the message as an example member would read it
@@ -43,10 +53,13 @@ export function AutomationsAdmin({ freshSession }: { freshSession?: Fresh }) {
   };
   const reload = async (token: string) => {
     const next = await fetchAutomations(token); setItems(next);
-    const counts = await Promise.all(next.map((item) => triggerInfo[item.trigger].ready ? automationReach(item.trigger, item.days, token).catch(() => null) : Promise.resolve(null)));
+    const counts = await Promise.all(next.map((item) => triggerInfo[item.trigger].ready ? automationReach(item.trigger, item.days, item.marketing, token).catch(() => null) : Promise.resolve(null)));
     setReach(Object.fromEntries(next.map((item, index) => [item.id, counts[index]])));
   };
   useEffect(() => { if (freshSession) void run(reload); }, []);
+  // Editing opens the editor where the automation is; bring it into view.
+  const editor = useRef<HTMLFormElement>(null);
+  useEffect(() => { if (draft) editor.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }); }, [draft?.id, draft === null]);
   const head = <><div className="workspace-head"><div><p className="eyebrow"><Workflow size={14}/> AUTOMATIONS</p><h2>Messages on autopilot<span>.</span></h2></div>{freshSession && <button className="glow-button" onClick={() => { setDraft(blank()); setBanner(null); }}><Plus size={16}/> Create automation</button>}</div>
     <p className="automation-note"><Info size={16}/> <span>Choose when a message goes out and write what it says. <b>Nothing is sent yet:</b> sending starts once an email service is connected. Switched-on automations will then run once a day.</span></p></>;
   if (!freshSession) return <>{head}<p className="admin-copy">Automations are saved in the live store database. Sign in to the live store to manage them.</p></>;
@@ -61,29 +74,32 @@ export function AutomationsAdmin({ freshSession }: { freshSession?: Fresh }) {
   };
   const insert = (token: string) => draft && setDraft({ ...draft, body: draft.body + token });
   const storeLink = typeof window === "undefined" ? "" : window.location.origin;
-  return <div className="automations">
-    {head}
-    {banner && <p className={banner.ok ? "save-banner save-ok" : "save-banner save-fail"} role={banner.ok ? "status" : "alert"}>{banner.ok ? <Check size={17}/> : <X size={17}/>}{banner.text}</p>}
-    {draft && <form className="automation-editor" onSubmit={submit}>
+  const editorForm = draft && <form ref={editor} className="automation-editor" onSubmit={submit}>
       <div className="create-item-form automation-form">
         <label>Automation name<input required maxLength={60} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="e.g. We miss you"/></label>
         <label>When<select value={draft.trigger} onChange={(event) => { const trigger = event.target.value as AutomationTrigger; setDraft({ ...draft, trigger, days: triggerInfo[trigger].usesDays ? draft.days || 30 : 0 }); }}>{automationTriggers.map((trigger) => <option key={trigger} value={trigger}>{triggerInfo[trigger].label}</option>)}</select></label>
         {triggerInfo[draft.trigger].usesDays && <label>Days<input type="number" min={1} max={365} required value={draft.days} onChange={(event) => setDraft({ ...draft, days: Number(event.target.value) })}/></label>}
+        <label>Button text<input required maxLength={40} value={draft.button_label} onChange={(event) => setDraft({ ...draft, button_label: event.target.value })} placeholder="e.g. See what's new"/></label>
         <label>Coupon code (optional)<input maxLength={40} value={draft.coupon_code} onChange={(event) => setDraft({ ...draft, coupon_code: event.target.value })} placeholder="e.g. BACK10"/></label>
         <label className="wide">Email subject<input required maxLength={120} value={draft.subject} onChange={(event) => setDraft({ ...draft, subject: event.target.value })} placeholder="e.g. {first_name}, it's been a while"/></label>
         <label className="wide">Message<textarea required maxLength={4000} rows={8} value={draft.body} onChange={(event) => setDraft({ ...draft, body: event.target.value })}/></label>
         <div className="wide placeholder-row"><span>Add to the message:</span>{placeholders.map((token) => <button type="button" key={token} className="ghost-pill" onClick={() => insert(token)}>{token}</button>)}</div>
         {!triggerInfo[draft.trigger].ready && <p className="wide automation-warning">This rule needs online orders and saved bags, which the store doesn't have yet. You can prepare it now.</p>}
+        <label className="wide automation-switch"><input type="checkbox" checked={draft.marketing} onChange={(event) => setDraft({ ...draft, marketing: event.target.checked })}/> Marketing message: only for members who chose to get BH updates (adds an unsubscribe link)</label>
         <label className="wide automation-switch"><input type="checkbox" checked={draft.active} onChange={(event) => setDraft({ ...draft, active: event.target.checked })}/> Switched on</label>
         <div className="wide tag-form-actions"><button className="glow-button" disabled={busy}>{busy ? "Saving…" : draft.id ? "Save automation" : "Create automation"} <Check size={16}/></button><button type="button" className="ghost-pill" onClick={() => setDraft(null)}>Cancel</button></div>
       </div>
-      <aside className="email-preview" aria-label="Email preview"><p className="eyebrow"><Mail size={13}/> PREVIEW</p><div><small>To: {sample} (example member)</small><h4>{fillMessage(draft.subject || "Subject", draft, sample, storeLink)}</h4><p>{fillMessage(draft.body, draft, sample, storeLink)}</p><span>BH Clothing</span></div></aside>
-    </form>}
-    <div className="automation-list">{items === null ? <p className="admin-copy">Loading automations…</p> : items.length === 0 ? <p className="admin-copy">No automations yet. Create your first one.</p> : items.map((item) => { const info = triggerInfo[item.trigger]; const Icon = info.icon; const count = reach[item.id]; return <article key={item.id} className={item.active ? "on" : ""}>
+      <EmailPreview draft={draft} sample={sample} storeLink={storeLink}/>
+    </form>;
+  return <div className="automations">
+    {head}
+    {banner && <p className={banner.ok ? "save-banner save-ok" : "save-banner save-fail"} role={banner.ok ? "status" : "alert"}>{banner.ok ? <Check size={17}/> : <X size={17}/>}{banner.text}</p>}
+    {draft && !draft.id && editorForm}
+    <div className="automation-list">{items === null ? <p className="admin-copy">Loading automations…</p> : items.length === 0 ? <p className="admin-copy">No automations yet. Create your first one.</p> : items.map((item) => { const info = triggerInfo[item.trigger]; const Icon = info.icon; const count = reach[item.id]; return draft?.id === item.id ? <div key={item.id}>{editorForm}</div> : <article key={item.id} className={item.active ? "on" : ""}>
       <span className="icon-orb"><Icon size={19}/></span>
-      <div><h3>{item.name}</h3><p>{info.sentence(item.days)} · Email</p><small>{!info.ready ? "Needs online orders" : count == null ? "" : `${count} ${count === 1 ? "member matches" : "members match"} today`}</small></div>
+      <div><h3>{item.name}</h3><p>{info.sentence(item.days)} · Email{item.marketing && <span className="marketing-flag"><Bell size={11}/> Updates only</span>}</p><small>{!info.ready ? "Needs online orders" : count == null ? "" : `${count} ${count === 1 ? "member matches" : "members match"} today${item.marketing ? " (with updates on)" : ""}`}</small></div>
       <button className={item.active ? "switch active" : "switch"} disabled={busy} onClick={() => toggle(item)} aria-label={`${item.active ? "Switch off" : "Switch on"} ${item.name}`}><i/></button>
-      <button className="ghost-pill" onClick={() => { setDraft({ ...item }); setBanner(null); window.scrollTo({ top: 0, behavior: "smooth" }); }}><Pencil size={14}/> Edit</button>
+      <button className="ghost-pill" onClick={() => { setDraft({ ...item }); setBanner(null); }}><Pencil size={14}/> Edit</button>
       <button className="ghost-pill danger" onClick={() => remove(item)}><Trash2 size={14}/> Delete</button>
     </article>; })}</div>
   </div>;

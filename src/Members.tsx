@@ -34,7 +34,7 @@ export function TagList({ tags, owner = false }: { tags: Tag[]; owner?: boolean 
 }
 
 // Square-crop and shrink the picture in the browser so uploads stay small; keeps the original if that isn't possible.
-async function squarePicture(file: File, size = 400): Promise<Blob> {
+async function squarePicture(file: File, size = 640): Promise<Blob> {
   try {
     const bitmap = await createImageBitmap(file);
     const side = Math.min(bitmap.width, bitmap.height);
@@ -47,9 +47,11 @@ async function squarePicture(file: File, size = 400): Promise<Blob> {
   }
 }
 
-// The profile picture itself is the editor: hovering it shows a pencil (choose a picture) and a red bin (back to initials).
+// The profile picture itself is the editor: hovering it shows a small pencil (choose a picture) and a red bin (back to
+// initials) in its bottom corners; clicking the picture opens it large.
 export function AvatarEditor({ name, profile, freshSession, onSaved, onMessage }: { name: string; profile: Profile; freshSession: Fresh; onSaved: (profile: Profile) => void; onMessage: (banner: Banner) => void }) {
   const [busy, setBusy] = useState(false);
+  const [viewing, setViewing] = useState(false);
   const store = async (makeUrl: (session: UserSession) => Promise<string>, done: string) => {
     setBusy(true);
     try {
@@ -65,12 +67,24 @@ export function AvatarEditor({ name, profile, freshSession, onSaved, onMessage }
     const file = event.target.files?.[0]; event.target.value = "";
     if (file) void store(async (active) => uploadAvatar(active, await squarePicture(file)), "Your profile picture has been saved.");
   };
-  return <div className={busy ? "avatar-editor busy" : "avatar-editor"} tabIndex={0} aria-label="Profile picture">
-    <Avatar url={profile.avatar_url} name={name} className="avatar-orb"/>
-    <div className="avatar-tools">
-      <label className="avatar-tool" title={profile.avatar_url ? "Change picture" : "Add a picture"}><Pencil size={15}/><input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={choose} aria-label={profile.avatar_url ? "Change profile picture" : "Add a profile picture"}/></label>
-      {profile.avatar_url && <button type="button" className="avatar-tool remove" title="Remove picture" aria-label="Remove profile picture" disabled={busy} onClick={() => void store(async () => "", "Your profile picture was removed.")}><Trash2 size={15}/></button>}
-    </div>
+  return <div className={busy ? "avatar-editor busy" : "avatar-editor"}>
+    <button type="button" className="avatar-open" disabled={!profile.avatar_url} onClick={() => setViewing(true)} aria-label="View profile picture"><Avatar url={profile.avatar_url} name={name} className="avatar-orb"/></button>
+    <label className="avatar-tool edit" title={profile.avatar_url ? "Change picture" : "Add a picture"}><Pencil size={12}/><input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={choose} aria-label={profile.avatar_url ? "Change profile picture" : "Add a profile picture"}/></label>
+    {profile.avatar_url && <button type="button" className="avatar-tool remove" title="Remove picture" aria-label="Remove profile picture" disabled={busy} onClick={() => void store(async () => "", "Your profile picture was removed.")}><Trash2 size={12}/></button>}
+    {viewing && profile.avatar_url && <PictureViewer url={profile.avatar_url} name={name} onClose={() => setViewing(false)}/>}
+  </div>;
+}
+
+// The profile picture enlarged over a blurred page; closes on the X, a click outside or Escape.
+function PictureViewer({ url, name, onClose }: { url: string; name: string; onClose: () => void }) {
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, []);
+  return <div className="picture-viewer" role="dialog" aria-modal="true" aria-label={`${name} profile picture`} onClick={onClose}>
+    <figure onClick={(event) => event.stopPropagation()}><img src={url} alt={`${name} profile picture`}/><figcaption>{name}</figcaption></figure>
+    <button type="button" className="picture-viewer-close" aria-label="Close" onClick={onClose}><X size={20}/></button>
   </div>;
 }
 
