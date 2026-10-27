@@ -624,3 +624,12 @@ header { z-index: 40; }
   .automation-list article .ghost-pill { grid-column: span 1; }
 }
 @media (max-width: 600px) { .automation-form { grid-template-columns: 1fr; } }
+
+/* Account header: the picture sits level with "Welcome back," and is a little larger. */
+.account-clean-hero .avatar-editor { margin-top: 34px; }
+.account-clean-hero .avatar.avatar-orb { width: 96px; height: 96px; border-radius: 28px; font-size: 24px; }
+.account-clean-hero .avatar-open { border-radius: 28px; }
+@media (max-width: 600px) {
+  .account-clean-hero .avatar-editor { margin-top: 0; }
+  .account-clean-hero .avatar.avatar-orb { width: 76px; height: 76px; border-radius: 22px; }
+}
