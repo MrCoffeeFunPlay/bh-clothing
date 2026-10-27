@@ -50,7 +50,10 @@ const tee = (extra = {}) => ({
 test('the seed copies the live catalogue unchanged, without stock or invented prices', async () => {
   assert.equal((await rows('select count(*)::int as n from public.categories'))[0].n, 5);
   assert.equal((await rows('select count(*)::int as n from public.products'))[0].n, 23);
-  assert.equal((await rows('select count(*)::int as n from public.products where coming_soon'))[0].n, 10);
+  assert.equal((await rows('select count(*)::int as n from public.products where coming_soon'))[0].n, 16);
+  // Only the tees and Loose Shorts can be bought; the cap and bag are hidden.
+  assert.deepEqual((await rows('select id from public.products where active and not coming_soon order by id')).map(r => r.id), [1, 2, 3, 4, 5]);
+  assert.deepEqual((await rows('select slug from public.products where not active order by id')).map(r => r.slug), ['bh-washed-cap', 'bh-crossbody']);
   assert.equal((await rows(`select name from public.categories where slug = 'shorts'`))[0].name, 'Pants');
   assert.equal((await rows(`select count(*)::int as n from public.product_colours where product_id between 6 and 9 and front_image like '/catalog/hoodies/%/%-front.jpg' and back_image like '%-back.jpg'`))[0].n, 12);
   assert.equal((await rows(`select count(*)::int as n from public.products where cardinality(lookbook_images) > 0`))[0].n, 0);
@@ -69,7 +72,7 @@ test('the seed copies the live catalogue unchanged, without stock or invented pr
 
 test('visitors can read the catalogue but cannot change anything', async () => {
   await as('visitor', async () => {
-    assert.equal((await rows('select count(*)::int as n from public.products'))[0].n, 23);
+    assert.equal((await rows('select count(*)::int as n from public.products'))[0].n, 21);
     await assert.rejects(db.query(`update public.product_weight_prices set price_ils = 1 where product_id = 1`), /permission denied/);
     await assert.rejects(db.query(`insert into public.products (slug, name, category_slug) values ('x', 'X', 'tees')`), /permission denied/);
     await assert.rejects(db.query(`delete from public.products where id = 1`), /permission denied/);
