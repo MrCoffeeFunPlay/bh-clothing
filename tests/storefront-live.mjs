@@ -537,6 +537,10 @@ assert.match(myOrder.textContent, /ORDER BH-00001.*Shipped.*Test order.*Oni Blad
 assert.match(myOrder.textContent, /Tracking: RR123456789IL.*Not paid · no receipt/s);
 assert.equal(myOrder.querySelector('a[href*="receipt"]'), null);
 assert.equal(document.querySelector('.account-panel .admin-demo-note'), null, 'real orders, not an example');
+// The account icon always opens the account's first page (My profile), even after visiting Orders.
+await navigate('home');
+await click(document.querySelector('header .account-menu > button'));
+assert.match(document.querySelector('.account-panel').textContent, /MY PROFILE/i);
 
 await act(() => root.unmount());
 rmSync('.live-dom', { recursive: true, force: true });
