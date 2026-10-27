@@ -92,8 +92,13 @@ export function productToPayload(product: Product, categories: CategoryRow[]) {
 
 const readableError = (body: { message?: string; msg?: string; error_description?: string; error?: string } | null, status: number) => {
   const text = body?.message || body?.msg || body?.error_description || body?.error || "";
-  if (status === 401 || status === 403 || /permission denied|row-level security|authorised/i.test(text)) return "You don't have permission to change the store. Sign in again as an admin.";
   if (/invalid login credentials/i.test(text)) return "The email or password is not correct.";
+  if (/email not confirmed/i.test(text)) return "Confirm your email first: enter the code we sent you.";
+  if (/already registered|already exists/i.test(text)) return "An account with this email already exists. Log in instead.";
+  if (/expired|invalid.*(otp|token)|token.*(invalid|expired)/i.test(text)) return "That code is wrong or has expired. Check the email or send a new code.";
+  if (/rate limit|too many|security purposes/i.test(text)) return "Too many attempts. Please wait a minute and try again.";
+  if (/password/i.test(text) && /(at least|weak|short)/i.test(text)) return "Choose a stronger password (at least 8 characters).";
+  if (status === 401 || status === 403 || /permission denied|row-level security|authorised/i.test(text)) return "You don't have permission to do this. Sign in again.";
   return text || `The store database answered with an error (${status}).`;
 };
 
@@ -137,43 +142,110 @@ export async function uploadProductImage(file: File, token: string) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// Admin sign-in (Supabase Auth). The session stays in this browser so the owner does not sign in on every visit.
+// Accounts (Supabase Auth). "Remember me" keeps the session in this browser; otherwise it lasts until the browser
+// is closed. Either way a page refresh keeps the user signed in. New accounts confirm their email with a code.
 // ---------------------------------------------------------------------------------------------------------------
-export type AdminSession = { accessToken: string; refreshToken: string; expiresAt: number; email: string; userId: string };
+export type UserSession = { accessToken: string; refreshToken: string; expiresAt: number; email: string; userId: string; remember: boolean };
+export type AdminSession = UserSession;
 type TokenAnswer = { access_token: string; refresh_token: string; expires_in: number; user: { id: string; email?: string } };
-const SESSION_KEY = "bh-admin-session-v1";
+const SESSION_KEY = "bh-session-v1";
 
-const toSession = (answer: TokenAnswer): AdminSession => ({
+const stores = () => {
+  const list: Storage[] = [];
+  try { if (typeof localStorage !== "undefined") list.push(localStorage); } catch { /* blocked storage */ }
+  try { if (typeof sessionStorage !== "undefined") list.push(sessionStorage); } catch { /* blocked storage */ }
+  return list;
+};
+const toSession = (answer: TokenAnswer, remember: boolean): UserSession => ({
   accessToken: answer.access_token, refreshToken: answer.refresh_token, expiresAt: Date.now() + answer.expires_in * 1000,
-  email: answer.user.email ?? "", userId: answer.user.id,
+  email: answer.user.email ?? "", userId: answer.user.id, remember,
 });
-const remember = (session: AdminSession | null) => {
-  try { if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session)); else localStorage.removeItem(SESSION_KEY); } catch { /* Signing in still works for this visit. */ }
+const keep = (session: UserSession | null) => {
+  for (const store of stores()) { try { store.removeItem(SESSION_KEY); } catch { /* ignore */ } }
+  if (session) {
+    try { (session.remember ? localStorage : sessionStorage).setItem(SESSION_KEY, JSON.stringify(session)); } catch { /* Signed in for this page view only. */ }
+  }
   return session;
 };
 
-export async function signIn(email: string, password: string) {
+export async function signIn(email: string, password: string, remember = true) {
   const answer = await request<TokenAnswer>("/auth/v1/token?grant_type=password", { method: "POST", body: JSON.stringify({ email, password }) });
-  return remember(toSession(answer))!;
+  return keep(toSession(answer, remember))!;
 }
 
-export async function currentSession(): Promise<AdminSession | null> {
-  let stored: AdminSession | null = null;
-  try { stored = JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch { stored = null; }
+// Creates the account. With email confirmation on (the BH setting), no session is returned until the email is
+// confirmed, either with the code (custom email template) or the link in Supabase's default email, which brings the
+// visitor back to this page (see sessionFromConfirmationLink).
+export async function signUp(email: string, password: string, details: Record<string, string>, remember = true) {
+  const back = typeof window !== "undefined" ? `?redirect_to=${encodeURIComponent(window.location.origin + window.location.pathname)}` : "";
+  const answer = await request<Partial<TokenAnswer>>(`/auth/v1/signup${back}`, { method: "POST", body: JSON.stringify({ email, password, data: details }) });
+  return answer.access_token && answer.refresh_token && answer.user ? keep(toSession(answer as TokenAnswer, remember)) : null;
+}
+
+export async function verifySignupCode(email: string, code: string, remember = true) {
+  const answer = await request<TokenAnswer>("/auth/v1/verify", { method: "POST", body: JSON.stringify({ type: "signup", email, token: code.trim() }) });
+  return keep(toSession(answer, remember))!;
+}
+
+// The confirmation link in Supabase's default email returns here with the session in the address:
+// #access_token=…&refresh_token=…&expires_in=…&type=signup (or #error=…&error_description=…).
+export async function sessionFromConfirmationLink(hash: string): Promise<{ session: UserSession } | { error: string } | null> {
+  const values = new URLSearchParams(hash.replace(/^#/, ""));
+  if (values.get("error") || values.get("error_description")) {
+    const text = values.get("error_description") || values.get("error") || "";
+    return { error: /expired|invalid/i.test(text) ? "This confirmation link has expired or was already used. Log in, or sign up again for a new link." : text };
+  }
+  const accessToken = values.get("access_token"); const refreshToken = values.get("refresh_token");
+  if (!accessToken || !refreshToken) return null;
+  const user = await request<{ id: string; email?: string }>("/auth/v1/user", {}, accessToken);
+  return { session: keep(toSession({ access_token: accessToken, refresh_token: refreshToken, expires_in: Number(values.get("expires_in")) || 3600, user }, true))! };
+}
+
+export const resendSignupCode = (email: string) =>
+  request("/auth/v1/resend", { method: "POST", body: JSON.stringify({ type: "signup", email }) });
+
+export async function currentSession(): Promise<UserSession | null> {
+  let stored: UserSession | null = null;
+  for (const store of stores()) {
+    try { stored = JSON.parse(store.getItem(SESSION_KEY) || "null"); } catch { stored = null; }
+    if (stored) break;
+  }
   if (!stored?.refreshToken) return null;
   if (stored.expiresAt - Date.now() > 60_000) return stored;
   try {
     const answer = await request<TokenAnswer>("/auth/v1/token?grant_type=refresh_token", { method: "POST", body: JSON.stringify({ refresh_token: stored.refreshToken }) });
-    return remember(toSession(answer));
-  } catch {
-    return remember(null);
+    return keep(toSession(answer, stored.remember !== false));
+  } catch (error) {
+    // Only forget the session when the server rejected it; keep it if the network was briefly unavailable.
+    if (error instanceof CatalogError && error.status > 0) return keep(null);
+    return stored;
   }
 }
 
-export async function signOut(session: AdminSession | null) {
-  remember(null);
+export async function signOut(session: UserSession | null) {
+  keep(null);
   if (session) await request("/auth/v1/logout", { method: "POST" }, session.accessToken).catch(() => undefined);
 }
 
-export const isCatalogAdmin = (session: AdminSession) =>
+export const isCatalogAdmin = (session: UserSession) =>
   request<boolean>("/rest/v1/rpc/is_catalog_admin", { method: "POST", body: "{}" }, session.accessToken);
+
+// ---------------------------------------------------------------------------------------------------------------
+// Customer profile (public.profiles): each user reads and saves only their own row.
+// ---------------------------------------------------------------------------------------------------------------
+export type Profile = { first_name: string; last_name: string; username: string; birthday: string | null; country: string };
+export const emptyProfile = (): Profile => ({ first_name: "", last_name: "", username: "", birthday: null, country: "" });
+
+export async function fetchProfile(session: UserSession): Promise<Profile | null> {
+  const rows = await request<Profile[]>(`/rest/v1/profiles?id=eq.${encodeURIComponent(session.userId)}&select=first_name,last_name,username,birthday,country`, {}, session.accessToken);
+  return rows?.[0] ?? null;
+}
+
+export async function saveProfile(session: UserSession, profile: Profile): Promise<Profile> {
+  const rows = await request<Profile[]>("/rest/v1/profiles?on_conflict=id&select=first_name,last_name,username,birthday,country", {
+    method: "POST", body: JSON.stringify({ id: session.userId, ...profile, birthday: profile.birthday || null }),
+    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+  }, session.accessToken);
+  if (!rows?.[0]) throw new CatalogError("Your details were not saved. Please try again.");
+  return rows[0];
+}

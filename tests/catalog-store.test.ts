@@ -96,12 +96,29 @@ test('the admin session is refreshed when it expires and cleared when it can no 
   configureCatalogBackend({ url: 'https://example.supabase.co', key: 'sb_publishable_test' });
   const store = new Map<string, string>();
   globalThis.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v), removeItem: (k: string) => void store.delete(k) } as Storage;
-  store.set('bh-admin-session-v1', JSON.stringify({ accessToken: 'old', refreshToken: 'r1', expiresAt: Date.now() - 1, email: 'owner@example.com', userId: 'u1' }));
+  const tab = new Map<string, string>();
+  globalThis.sessionStorage = { getItem: (k: string) => tab.get(k) ?? null, setItem: (k: string, v: string) => void tab.set(k, v), removeItem: (k: string) => void tab.delete(k) } as Storage;
+  store.set('bh-session-v1', JSON.stringify({ accessToken: 'old', refreshToken: 'r1', expiresAt: Date.now() - 1, email: 'owner@example.com', userId: 'u1', remember: true }));
   mockFetch(() => json({ access_token: 'new', refresh_token: 'r2', expires_in: 3600, user: { id: 'u1', email: 'owner@example.com' } }));
   assert.equal((await currentSession())?.accessToken, 'new');
-  assert.equal(JSON.parse(store.get('bh-admin-session-v1')!).refreshToken, 'r2');
-  store.set('bh-admin-session-v1', JSON.stringify({ accessToken: 'old', refreshToken: 'bad', expiresAt: Date.now() - 1, email: '', userId: 'u1' }));
+  assert.equal(JSON.parse(store.get('bh-session-v1')!).refreshToken, 'r2');
+  store.set('bh-session-v1', JSON.stringify({ accessToken: 'old', refreshToken: 'bad', expiresAt: Date.now() - 1, email: '', userId: 'u1', remember: true }));
   mockFetch(() => json({ error_description: 'Invalid Refresh Token' }, 400));
   assert.equal(await currentSession(), null);
-  assert.equal(store.has('bh-admin-session-v1'), false);
+  assert.equal(store.has('bh-session-v1'), false);
+});
+
+test('a brief network problem does not sign the user out; a session kept without "remember me" refreshes into session storage', async () => {
+  configureCatalogBackend({ url: 'https://example.supabase.co', key: 'sb_publishable_test' });
+  const tab = new Map<string, string>();
+  globalThis.localStorage = { getItem: () => null, setItem: () => undefined, removeItem: () => undefined } as unknown as Storage;
+  globalThis.sessionStorage = { getItem: (k: string) => tab.get(k) ?? null, setItem: (k: string, v: string) => void tab.set(k, v), removeItem: (k: string) => void tab.delete(k) } as Storage;
+  tab.set('bh-session-v1', JSON.stringify({ accessToken: 'old', refreshToken: 'r1', expiresAt: Date.now() - 1, email: 'a@b.c', userId: 'u1', remember: false }));
+  mockFetch(() => { throw new TypeError('Failed to fetch'); });
+  assert.equal((await currentSession())?.accessToken, 'old');
+  assert.ok(tab.has('bh-session-v1'));
+  mockFetch(() => json({ access_token: 'new', refresh_token: 'r2', expires_in: 3600, user: { id: 'u1', email: 'a@b.c' } }));
+  const refreshed = await currentSession();
+  assert.equal(refreshed?.accessToken, 'new'); assert.equal(refreshed?.remember, false);
+  assert.equal(JSON.parse(tab.get('bh-session-v1')!).refreshToken, 'r2');
 });
