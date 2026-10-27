@@ -435,8 +435,12 @@ export type Order = {
   payment_method: PaymentMethod; payment_status: PaymentStatus; status: OrderStatus;
   tracking_number: string; tracking_url: string; receipt_number: string; receipt_url: string; notes: string;
   source: "manual" | "website"; created_at: string; paid_at: string | null; shipped_at: string | null; items: OrderItem[];
+  is_test: boolean; payment_provider: string; payment_reference: string; receipt_provider: string;
 };
-export type OrderDraft = Omit<Order, "id" | "order_number" | "subtotal" | "total" | "source" | "created_at" | "paid_at" | "shipped_at"> & { id?: number };
+// What the owner can set. Payment and receipt fields are not here: only the future payment provider and receipts
+// service integration (server side) may set them, and the database refuses them from the website.
+export type OrderDraft = Omit<Order, "id" | "order_number" | "subtotal" | "total" | "source" | "created_at" | "paid_at" | "shipped_at"
+  | "payment_method" | "payment_status" | "payment_provider" | "payment_reference" | "receipt_number" | "receipt_url" | "receipt_provider"> & { id?: number };
 const ORDER_SELECT = "*,items:order_items(product_id,product_name,colour,size,fabric_weight,quantity,unit_price,image,sort_order)";
 type OrderRow = Omit<Order, "items" | "subtotal" | "discount" | "shipping" | "total" | "unit_price"> & { subtotal: number | string; discount: number | string; shipping: number | string; total: number | string; items: (OrderItem & { unit_price: number | string; sort_order: number })[] };
 const orderFromRow = (row: OrderRow): Order => ({
@@ -451,6 +455,6 @@ export const fetchOrders = (token: string) =>
   request<OrderRow[]>(`/rest/v1/orders?select=${ORDER_SELECT}&order=created_at.desc&limit=500`, {}, token).then(rows => (rows ?? []).map(orderFromRow));
 
 export async function saveOrder(order: OrderDraft, token: string) {
-  const input = { ...order, customer_name: order.customer_name.trim(), customer_email: order.customer_email.trim(), receipt_number: order.receipt_number.trim() };
+  const input = { ...order, customer_name: order.customer_name.trim(), customer_email: order.customer_email.trim() };
   return request<number>("/rest/v1/rpc/admin_save_order", { method: "POST", body: JSON.stringify({ input }) }, token);
 }

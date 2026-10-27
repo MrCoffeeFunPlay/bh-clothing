@@ -143,7 +143,8 @@ globalThis.fetch = async (url, init = {}) => {
   if (path === '/rest/v1/rpc/admin_save_order') {
     if (!isAdmin) return json({ code: '42501', message: 'Only an authorised BH admin can change orders.' }, 403);
     const input = body.input; if (!input.items?.length) return json({ message: 'An order needs at least one item.' }, 400);
-    const id = input.id ?? nextOrderId++; ordersDb = [...ordersDb.filter(row => row.id !== id), orderRow(input, id)]; return json(id);
+    backend.lastOrderInput = structuredClone(input);
+    const id = input.id ?? nextOrderId++; ordersDb = [...ordersDb.filter(row => row.id !== id), { ...orderRow(input, id), payment_status: 'unpaid', receipt_number: '', receipt_url: '', payment_provider: '', payment_reference: '' }]; return json(id);
   }
   if (path.startsWith('/rest/v1/orders')) {
     if (!email) return json({ message: 'permission denied for table orders' }, 401);
@@ -492,9 +493,10 @@ await click([...document.querySelectorAll('.automation-list article')].find(row 
 assert.equal(automationsDb.length, 1);
 await assert.rejects(store.saveAutomation({ name: 'x', trigger: 'welcome', days: 0, channel: 'email', subject: 's', body: 'b', coupon_code: '', button_label: 'Go', marketing: false, active: true }, 'token:dana@gmail.com'), /permission/);
 
-// 19. Orders: the owner records a sale by hand; totals are worked out; the member sees it with its receipt.
-await click(btn('Orders & receipts'));
+// 19. Orders before payments: the owner records a test order; it stays unpaid with no receipt; the member sees it.
+await click(btn('Orders', document.querySelector('.admin-shell aside')));
 assert.equal(document.querySelector('.admin-demo-note'), null, 'orders are real, not samples');
+assert.match(document.querySelector('.automation-note').textContent, /Payments and receipts are not connected yet/);
 assert.match(document.querySelector('.orders-admin').textContent, /No orders yet/);
 await click(btn('Record an order'));
 await set(label('Full name'), 'Dana Cohen'); await set(label('Email'), 'Dana@Gmail.com'); await set(label('City'), 'Tel Aviv');
@@ -506,33 +508,36 @@ assert.match(pieceRow.textContent, /Oni Blade.*260 GSM.*×2/s);
 assert.equal(label('Price each', pieceRow).value, '139.99', 'store price (sale price) for 260 GSM in ILS');
 await set(label('Shipping'), '25'); await set(label('Discount'), '10');
 assert.match(document.querySelector('.order-money .grand').textContent, /294\.98/);
+assert.equal(label('Payment'), undefined, 'no way to mark an order paid'); assert.equal(label('Receipt number'), undefined, 'no way to attach a receipt');
+assert.equal(label(' Test order', document.querySelector('.order-form')).checked, true, 'new orders are test orders by default');
+assert.match(document.querySelector('.order-form').textContent, /Payment: Not paid/);
 await submit(document.querySelector('.order-form'));
 assert.match(document.querySelector('.save-banner.save-ok').textContent, /order has been recorded/);
 assert.equal(ordersDb.length, 1); assert.equal(ordersDb[0].user_id, 'uid:dana@gmail.com', 'linked to Dana\'s account by email');
-assert.match(document.querySelector('.order-detail').textContent, /BH-00001.*Paid · Bit.*Dana Cohen.*Total₪294\.98.*No receipt attached yet/s);
-// Attach the receipt from the receipts service and mark it shipped.
+assert.ok(!('payment_status' in backend.lastOrderInput) && !('receipt_number' in backend.lastOrderInput), 'the website never sends payment or receipt fields');
+assert.deepEqual(backend.lastOrderInput.items[0], { product_id: products.find(p => p.name === 'Oni Blade').id, product_name: 'Oni Blade', colour: 'Black', size: 'L', fabric_weight: '260g', quantity: 2, unit_price: 139.99, image: backend.lastOrderInput.items[0].image }, 'piece, variant and price at the time of the order');
+assert.match(document.querySelector('.order-detail').textContent, /BH-00001.*Not paid.*Test order.*Dana Cohen.*Total₪294\.98.*Not paid\. Payments aren't connected yet.*No receipt/s);
 await click(btn('Edit order'));
 await set(label('Order status'), 'shipped'); await set(label('Tracking number'), 'RR123456789IL');
-await set(label('Receipt number'), '0001'); await set(label('Receipt link'), 'https://receipts.example/0001.pdf');
 await submit(document.querySelector('.order-form'));
-assert.equal(ordersDb.length, 1, 'edited, not duplicated'); assert.equal(ordersDb[0].receipt_number, '0001');
+assert.equal(ordersDb.length, 1, 'edited, not duplicated'); assert.equal(ordersDb[0].payment_status, 'unpaid');
 await click(btn('All orders'));
-assert.match(document.querySelector('.order-table').textContent, /BH-00001.*Dana Cohen.*Shipped.*Paid.*0001.*294\.98/s);
+assert.match(document.querySelector('.order-table').textContent, /BH-00001.*Dana Cohen.*Shipped.*Not paid.*Test.*294\.98/s);
 await set(document.querySelector('.order-filters input'), 'nobody');
 assert.match(document.querySelector('.orders-admin').textContent, /No orders match/);
-await assert.rejects(store.saveOrder({ customer_name: 'x', customer_email: '', receipt_number: '', items: [{ product_name: 'x', quantity: 1, unit_price: 1 }] }, 'token:customer@example.com'), /permission/);
-// Dana sees the order in her account, with tracking and the receipt.
+await assert.rejects(store.saveOrder({ customer_name: 'x', customer_email: '', items: [{ product_name: 'x', quantity: 1, unit_price: 1 }] }, 'token:customer@example.com'), /permission/);
+// Dana sees the order in her account: marked as a test, not paid, no receipt.
 clearBrowser();
 users['dana@gmail.com'].password = 'dana-pass';
 await visit('account');
 await signIn('dana@gmail.com', 'dana-pass');
 await click(btn('Orders & shipments', document.querySelector('.account-dashboard aside')));
 const myOrder = document.querySelector('.my-orders article');
-assert.match(myOrder.textContent, /ORDER BH-00001.*Shipped.*Oni Blade.*Black · L · 260 GSM · ×2/s);
-assert.equal(myOrder.querySelector('a[href="https://receipts.example/0001.pdf"]').textContent.trim(), 'Receipt 0001');
-assert.match(myOrder.textContent, /Tracking: RR123456789IL/);
+assert.match(myOrder.textContent, /ORDER BH-00001.*Shipped.*Test order.*Oni Blade.*Black · L · 260 GSM · ×2/s);
+assert.match(myOrder.textContent, /Tracking: RR123456789IL.*Not paid · no receipt/s);
+assert.equal(myOrder.querySelector('a[href*="receipt"]'), null);
 assert.equal(document.querySelector('.account-panel .admin-demo-note'), null, 'real orders, not an example');
 
 await act(() => root.unmount());
 rmSync('.live-dom', { recursive: true, force: true });
-console.log('PASS: orders recorded by the owner and shown to members, BH updates choice, designed automation emails, automations, profile pictures, phone verification with the Verified tag, owner-managed member tags, real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');
+console.log('PASS: unpaid test orders recorded by the owner and shown to members (no payment or receipt from the website), BH updates choice, designed automation emails, automations, profile pictures, phone verification with the Verified tag, owner-managed member tags, real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');
