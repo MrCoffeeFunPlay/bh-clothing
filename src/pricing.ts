@@ -33,10 +33,10 @@ export function productSalePrice(product: Product, currency: Currency, weight = 
 export function productAmount(product: Product, currency: Currency, weight = product.selectedWeight || product.cottonWeights?.[0], now = Date.now()) {
   const original = productOriginalAmount(product, currency, weight);
   if (original === null) return null;
-  // One product discount only: an active timed product sale (from the original price) temporarily replaces the
-  // fixed sale price; when it ends or is stopped, the fixed sale price applies again.
-  if (saleActive(product.sale, currency, now)) return saleAmount(original, product.sale, currency, now);
-  return productSalePrice(product, currency, weight) ?? original;
+  // One product discount only: while a timed product sale is active (calculated from the original price), the
+  // customer gets the lower of it and the fixed sale price; when it ends or is stopped, the fixed sale price applies.
+  const fixed = productSalePrice(product, currency, weight) ?? original;
+  return saleActive(product.sale, currency, now) ? Math.min(fixed, saleAmount(original, product.sale, currency, now)) : fixed;
 }
 export function cartTotals(items: Product[], currency: Currency, sale?: Sale, now = Date.now()) {
   const amounts = items.map(item => productAmount(item, currency, undefined, now));

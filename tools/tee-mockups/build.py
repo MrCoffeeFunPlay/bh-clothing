@@ -112,18 +112,49 @@ def prepare(reference):
     return ref, a, tee, shade, xx, yy
 
 
-def back_shading(shade, tee, xx, yy):
-    """Turn the front neckline into a plain back: keep the back collar band along the top edge, and rebuild the
-    fabric below it (where the front view shows the neck opening and front collar) from the surrounding fabric."""
-    s = shade.copy()
-    X0, X1, YB = 360, 690, 470                                  # area to rebuild (reference px)
+def back_view(a, shade, tee, xx, yy):
+    """Back silhouette: carve a shallow U-shaped back neckline (like the owner's reference photos) out of the
+    front-view collar, give it a thin ribbed band, and rebuild the fabric below it."""
+    tee = tee.copy(); a = a.copy(); s = shade.copy()
+    XL, XR, DEPTH, BAND = 399, 622, 40, 11                    # neckline corners (reference px), dip depth, band
     top = np.full(tee.shape[1], -1.0)
-    for x in range(X0, X1):
+    for x in range(XL - 30, XR + 30):
         col = np.where(tee[:, x])[0]
         if col.size: top[x] = col[0]
+    t = (np.arange(XL, XR + 1) - XL) / (XR - XL)
+    curve = (1 - t) * top[XL] + t * top[XR] + DEPTH * np.sin(np.pi * t) ** 0.85
+    neck_y = top.copy(); neck_y[XL:XR + 1] = np.maximum(curve, top[XL:XR + 1])
+    # carve the neckline: those pixels become wall (texture copied from the wall just above)
+    carve = np.zeros_like(tee)
+    for i, x in enumerate(range(XL, XR + 1)):
+        carve[int(top[x]):int(round(neck_y[x])), x] = True
+    shift = 70
+    for ch in range(3):
+        wall = np.roll(a[..., ch], shift, axis=0)
+        a[..., ch] = np.where(carve, wall, a[..., ch])
+    tee &= ~carve
+    # ribbed band following the new neckline, using the rib texture of the original collar
+    orig = shade.copy()
+    for x in range(XL, XR + 1):
+        y0 = int(round(neck_y[x]))
+        for k in range(BAND):
+            s[y0 + k, x] = orig[int(top[x]) + 3 + k, x]
+    s = rebuild_below_collar(s, tee, xx, yy, neck_y, BAND, XL - 45, XR + 45)
+    for x in range(XL + 4, XR - 3):                               # back collar seam just under the band
+        y = int(round(neck_y[x])) + BAND
+        s[y:y + 2, x] *= 0.85
+    return a, tee, s
+
+
+def rebuild_below_collar(s, tee, xx, yy, neck_y, BAND, X0, X1):
+    """Rebuild the fabric under the back collar from the surrounding fabric (no front-collar marks)."""
+    s = s.copy()
+    YB = 470
+    top = neck_y.copy()
     xs = np.arange(X0, X1)
-    top[xs] = np.convolve(np.pad(top[xs], 12, mode="edge"), np.ones(25) / 25, mode="same")[12:-12]
-    BAND = 17
+    for x in xs:
+        if not (top[x] >= 0):
+            col = np.where(tee[:, x])[0]; top[x] = col[0] if col.size else 0
     below = np.zeros_like(tee)
     for x in range(X0, X1):
         below[int(round(top[x])) + BAND:YB, x] = True
@@ -151,12 +182,7 @@ def back_shading(shade, tee, xx, yy):
     fx = np.clip(np.minimum(xx - X0, X1 - 1 - xx) / 25.0, 0, 1)
     fy = np.clip((YB - 1 - yy) / 25.0, 0, 1)
     w = below * fx * fy
-    s = s * (1 - w) + rebuilt * w
-    # back collar seam just under the band
-    for x in range(X0 + 20, X1 - 20):
-        t = int(round(top[x])) + BAND
-        s[t:t + 2, x] = s[t:t + 2, x] * 0.85
-    return s
+    return s * (1 - w) + rebuilt * w
 
 
 def recolour(a, tee, shade, hexcol):
@@ -191,12 +217,14 @@ def main():
     big = lambda arr: np.asarray(Image.fromarray(arr.astype(np.float32), mode="F").resize((round(a.shape[1] * SCALE), round(a.shape[0] * SCALE)), Image.BICUBIC))
     a_big = np.asarray(ref.resize((round(a.shape[1] * SCALE), round(a.shape[0] * SCALE)), Image.LANCZOS)).astype(np.float32)
     tee_big = big(tee.astype(np.float32)) > 0.5
-    shades = {"front": big(shade), "back": big(back_shading(shade, tee, xx, yy))}
+    a_back, tee_back, shade_back = back_view(a, shade, tee, xx, yy)
+    a_back_big = np.asarray(Image.fromarray(np.clip(a_back, 0, 255).astype(np.uint8)).resize(a_big.shape[1::-1], Image.LANCZOS)).astype(np.float32)
+    views = {"front": (a_big, tee_big, big(shade)), "back": (a_back_big, big(tee_back.astype(np.float32)) > 0.5, big(shade_back))}
     manifest = []
     for slug in only:
         for colour, (hexcol, ink) in COLOURS.items():
             for view in ("front", "back"):
-                img, ratio = recolour(a_big, tee_big, shades[view], hexcol)
+                img, ratio = recolour(*views[view], hexcol)
                 art = designs / DESIGNS[slug][view][ink]
                 if view == "front":
                     cw, ch = FRONT["canvas_cm"]; cx, cy = FRONT["centre"]
