@@ -11,9 +11,14 @@
 - **Database down:** the store shows a "store is unavailable" page with a retry button. It never falls back to old
   or built-in data as if it were the live store.
 
+- **Accounts:** real sign-in and sign-up (Supabase Auth). New accounts confirm their email with a code before they
+  are signed in. "Remember me" keeps the session on the device; without it the session ends when the browser closes.
+  A refresh never signs you out. Profile details (name, username, birthday, country) are saved in `public.profiles`;
+  each user can only read and change their own. The "Owner area" link only appears for admin accounts.
+
 Still demo / not connected: checkout and payments, orders and receipts (the Invoices tab shows samples), stock
-quantities, customer accounts and sign-up, coupons, BH Club, store-wide sales and site settings (those are kept in
-the browser only and are labelled as such in the owner area).
+quantities, wallet and saved cards, coupons, BH Club, store-wide sales and site settings (those are kept in the
+browser only and are labelled as such).
 
 ## Database changes (migrations)
 
@@ -33,6 +38,8 @@ Who can do what (enforced by the database, not by hiding buttons):
 | Admin (in `catalog_admins`) | yes, plus hidden products | yes | yes | no |
 | Owner in the Supabase dashboard | yes | yes | yes | yes |
 
+3. `20261027120000_customer_profiles.sql`: customer profiles, each user reads and updates only their own.
+
 `supabase/archive/` holds the first drafts; they were never applied and must not be run.
 
 ## Making the owner an admin (no passwords or keys in chat)
@@ -48,9 +55,23 @@ Who can do what (enforced by the database, not by hiding buttons):
 
    It should say `1 row` inserted. To remove an admin later:
    `delete from public.catalog_admins where user_id = (select id from auth.users where email = '...');`
-3. Recommended while customer accounts are not live: **Authentication → Sign In / Providers → Email** → turn off
-   **Allow new users to sign up**. (Even if someone signs up, they are not an admin and cannot change anything.)
-4. Open the site → `#admin` → sign in.
+3. Open the site → `#admin` (or Account → Owner area once signed in) → sign in.
+
+## Email confirmation codes for new accounts
+
+1. **Authentication → Sign In / Providers → Email**: keep **Allow new users to sign up** and **Confirm email** on.
+2. **Authentication → Emails → Templates → Confirm signup**: make the email show the code. Subject
+   `Your BH Clothing code`, message:
+
+   ```html
+   <h2>Welcome to BH Clothing</h2>
+   <p>Your confirmation code is:</p>
+   <p style="font-size:28px;font-weight:700;letter-spacing:4px">{{ .Token }}</p>
+   <p>Enter it on the BH site to finish creating your account. If you didn't sign up, you can ignore this email.</p>
+   ```
+3. Before launch: Supabase's built-in email sender only sends a few emails per hour and is meant for testing.
+   Connect your own sender under **Authentication → Emails → SMTP Settings** (for example Resend or your mail
+   provider) so every customer gets their code.
 
 ## Browser settings
 

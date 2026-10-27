@@ -457,3 +457,19 @@ footer { background:var(--ink); color:#f9f5ed; padding:45px 5.4vw 25px; }
 .colour-image i { display: grid; place-items: center; width: 72px; height: 96px; border-radius: 8px; border: 1px dashed var(--line); color: var(--muted); font-size: 10px; }
 .colour-image input { min-width: 0; font-size: 11px; }
 @media (max-width: 760px) { .colour-editor-row { grid-template-columns: 1fr 70px; } .colour-image { grid-column: 1 / -1; } }
+
+/* Accounts: save confirmation, remember-me and sign-in messages */
+.save-banner { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; padding: 14px 18px; border-radius: 14px; font-size: 14px; font-weight: 600; animation: save-banner-in .35s ease-out; }
+.save-banner.save-ok { color: #1f5e34; background: #e8f5ec; border: 1px solid #b7dcc2; }
+.save-banner.save-fail { color: #9b2c22; background: #fbeae6; border: 1px solid #efc3ba; }
+@keyframes save-banner-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.remember-me { display: flex !important; flex-direction: row !important; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.remember-me input { width: 16px !important; height: 16px; margin: 0; accent-color: var(--wine); }
+.auth-message { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; font-size: 13px; }
+.auth-message.error { color: #9b2c22; background: #fbeae6; border: 1px solid #efc3ba; }
+.auth-message.info { color: #1f5e34; background: #e8f5ec; border: 1px solid #b7dcc2; }
+.inventory-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.inventory-actions .ghost-pill { white-space: nowrap; }
+.admin-workspace .inventory-table article { grid-template-columns: 48px minmax(0, 1fr) 90px 90px auto; }
+.admin-workspace .inventory-table article > div:nth-child(2) { min-width: 0; }
+@media (max-width: 900px) { .admin-workspace .inventory-table article { grid-template-columns: 42px minmax(0, 1fr); } .admin-workspace .inventory-table .inventory-actions { grid-column: 1 / -1; justify-content: flex-start; } }

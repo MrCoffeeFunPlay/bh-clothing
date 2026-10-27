@@ -110,3 +110,25 @@ test('an admin can save, hide and create products in one transaction, with valid
   await as('visitor', async () => assert.equal((await rows(`select count(*)::int as n from public.products where name = 'New Tee'`))[0].n, 0));
   await as('admin', async () => assert.equal((await rows(`select count(*)::int as n from public.products where name = 'New Tee'`))[0].n, 1));
 });
+
+test('customers can only read and change their own profile; visitors see no profiles', async () => {
+  await as('customer', async () => {
+    await db.query(`insert into public.profiles (id, first_name, username, birthday, country) values ('${CUSTOMER}', 'Noa', 'noa', '1995-04-02', 'Israel')`);
+    await db.query(`update public.profiles set last_name = 'Levi' where id = '${CUSTOMER}'`);
+    assert.equal((await rows('select count(*)::int as n from public.profiles'))[0].n, 1);
+    await assert.rejects(db.query(`insert into public.profiles (id, first_name) values ('${ADMIN}', 'Not me')`), /row-level security/);
+    await assert.rejects(db.query(`delete from public.profiles where id = '${CUSTOMER}'`), /permission denied/);
+  });
+  await as('admin', async () => {
+    await db.query(`insert into public.profiles (id, first_name) values ('${ADMIN}', 'Owner')`);
+    const seen = await rows('select id, first_name from public.profiles');
+    assert.deepEqual(seen.map(row => row.first_name), ['Owner'], 'even an admin only sees their own profile');
+    const changed = await db.query(`update public.profiles set first_name = 'x' where id = '${CUSTOMER}'`);
+    assert.equal(changed.affectedRows, 0);
+  });
+  await as('visitor', async () => {
+    await assert.rejects(db.query('select * from public.profiles'), /permission denied/);
+  });
+  const customer = (await rows(`select first_name, last_name, username, country from public.profiles where id = '${CUSTOMER}'`))[0];
+  assert.deepEqual(customer, { first_name: 'Noa', last_name: 'Levi', username: 'noa', country: 'Israel' });
+});
