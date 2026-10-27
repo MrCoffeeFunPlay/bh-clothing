@@ -499,3 +499,8 @@ footer { background:var(--ink); color:#f9f5ed; padding:45px 5.4vw 25px; }
 .inventory-status.locked { color: #6d5b86; }
 .coming-soon-toggle { display: flex !important; flex-direction: row !important; align-items: center; gap: 10px; font-size: 13px; }
 .coming-soon-toggle input { width: 18px !important; height: 18px; accent-color: var(--wine); }
+.social-buttons { display: grid; gap: 10px; }
+.social-button { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 46px; padding: 0 16px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: var(--ink); font-size: 13px; font-weight: 600; text-decoration: none; transition: border-color .2s, box-shadow .2s; }
+.social-button:hover { border-color: #c9b29a; box-shadow: 0 6px 18px rgba(51, 41, 32, .08); }
+.social-button.apple { background: #111; color: #fff; border-color: #111; }
+.social-mark { width: 18px; height: 18px; flex: none; }

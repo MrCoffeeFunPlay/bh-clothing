@@ -100,8 +100,26 @@ const readableError = (body: { message?: string; msg?: string; error_description
   if (/rate limit|too many|security purposes/i.test(text)) return "Too many attempts. Please wait a minute and try again.";
   if (/password/i.test(text) && /(at least|weak|short)/i.test(text)) return "Choose a stronger password (at least 8 characters).";
   if (status === 401 || status === 403 || /permission denied|row-level security|authorised/i.test(text)) return "You don't have permission to do this. Sign in again.";
-  return text || `The store database answered with an error (${status}).`;
+  return friendlyDataError(text) || text || `Something went wrong (${status}). Please try again.`;
 };
+
+// Database rules (check constraints etc.) explained in plain words; never show raw database messages to people.
+const constraintMessages: [RegExp, string][] = [
+  [/profiles_birthday_check/, "The date of birth isn't valid. Please choose a real date."],
+  [/profiles_(first_name|last_name|username|country)_check/, "One of your details is too long. Please shorten it."],
+  [/sale_price_(ils|usd)_check/, "A sale price must be lower than the original price in the same currency."],
+  [/price_(ils|usd)_check/, "Prices must be more than 0."],
+  [/products_slug_key|duplicate key/, "Something with this name already exists. Choose a different name."],
+  [/products_check|sale_value_check/, "Check the sale: the discount must be more than 0 (up to 100%) and the end must be after the start."],
+  [/hex_check/, "Choose a valid colour swatch."],
+];
+const technical = /violates|constraint|relation "|column "|syntax|invalid input|null value|out of range|does not exist|operator|malformed/i;
+function friendlyDataError(text: string) {
+  for (const [pattern, message] of constraintMessages) if (pattern.test(text)) return message;
+  if (/invalid input syntax for type (date|timestamp)|date\/time field value out of range/i.test(text)) return "One of the dates isn't valid. Please check it.";
+  if (technical.test(text)) return "Some details aren't valid. Please check them and try again.";
+  return "";
+}
 
 async function request<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
   if (!config) throw new CatalogError("The live store database is not configured.");
@@ -188,18 +206,42 @@ export async function verifySignupCode(email: string, code: string, remember = t
   return keep(toSession(answer, remember))!;
 }
 
-// The confirmation link in Supabase's default email returns here with the session in the address:
-// #access_token=…&refresh_token=…&expires_in=…&type=signup (or #error=…&error_description=…).
-export async function sessionFromConfirmationLink(hash: string): Promise<{ session: UserSession } | { error: string } | null> {
+// Sign-in with Google, Facebook or Apple (Supabase Auth). Only providers switched on in the Supabase dashboard are
+// offered; the provider sends the customer back here with the session in the address.
+export type SocialProvider = "google" | "facebook" | "apple";
+export const socialProviders: SocialProvider[] = ["google", "facebook", "apple"];
+const REMEMBER_KEY = "bh-social-remember";
+
+export async function enabledSocialProviders(): Promise<SocialProvider[]> {
+  const settings = await request<{ external?: Record<string, boolean> }>("/auth/v1/settings");
+  return socialProviders.filter((provider) => settings?.external?.[provider]);
+}
+
+export function socialSignInUrl(provider: SocialProvider) {
+  if (!config) throw new CatalogError("The live store database is not configured.");
+  const back = typeof window !== "undefined" ? window.location.origin + window.location.pathname : "";
+  return `${config.url}/auth/v1/authorize?provider=${provider}&redirect_to=${encodeURIComponent(back)}`;
+}
+export const rememberSocialChoice = (remember: boolean) => { try { sessionStorage.setItem(REMEMBER_KEY, remember ? "1" : "0"); } catch { /* defaults to remember */ } };
+
+// The confirmation link from the sign-up email, and Google/Facebook/Apple sign-in, return here with the session in the
+// address: #access_token=…&refresh_token=…&expires_in=…&type=signup (or #error=…&error_description=…).
+export type RedirectResult = { session: UserSession; kind: "signup" | "social"; fullName: string } | { error: string };
+export async function sessionFromConfirmationLink(hash: string): Promise<RedirectResult | null> {
   const values = new URLSearchParams(hash.replace(/^#/, ""));
   if (values.get("error") || values.get("error_description")) {
     const text = values.get("error_description") || values.get("error") || "";
-    return { error: /expired|invalid/i.test(text) ? "This confirmation link has expired or was already used. Log in, or sign up again for a new link." : text };
+    return { error: /expired|invalid/i.test(text) ? "This confirmation link has expired or was already used. Log in, or sign up again for a new link."
+      : /access_denied|cancel/i.test(text) ? "Sign-in was cancelled." : "Sign-in didn't finish. Please try again." };
   }
   const accessToken = values.get("access_token"); const refreshToken = values.get("refresh_token");
   if (!accessToken || !refreshToken) return null;
-  const user = await request<{ id: string; email?: string }>("/auth/v1/user", {}, accessToken);
-  return { session: keep(toSession({ access_token: accessToken, refresh_token: refreshToken, expires_in: Number(values.get("expires_in")) || 3600, user }, true))! };
+  const user = await request<{ id: string; email?: string; user_metadata?: { full_name?: string; name?: string } }>("/auth/v1/user", {}, accessToken);
+  let remember = true;
+  try { remember = sessionStorage.getItem(REMEMBER_KEY) !== "0"; sessionStorage.removeItem(REMEMBER_KEY); } catch { /* keep default */ }
+  const kind = values.get("type") === "signup" ? "signup" : "social";
+  const session = keep(toSession({ access_token: accessToken, refresh_token: refreshToken, expires_in: Number(values.get("expires_in")) || 3600, user }, kind === "signup" || remember))!;
+  return { session, kind, fullName: user.user_metadata?.full_name || user.user_metadata?.name || "" };
 }
 
 export const resendSignupCode = (email: string) =>

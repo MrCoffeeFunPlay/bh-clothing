@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { products } from '../src/catalog.ts';
 import { productAmount, productOriginalAmount } from '../src/pricing.ts';
-import { CatalogError, configureCatalogBackend, currentSession, fetchCatalog, productFromRow, productToPayload, saveProduct, type CategoryRow, type ProductRow } from '../src/catalogStore.ts';
+import { CatalogError, configureCatalogBackend, currentSession, emptyProfile, fetchCatalog, productFromRow, productToPayload, saveProduct, saveProfile, type CategoryRow, type ProductRow } from '../src/catalogStore.ts';
 
 const categories: CategoryRow[] = ([['tees', 'Tees'], ['hoodies', 'Hoodies'], ['shorts', 'Pants'], ['accessories', 'Accessories'], ['anime', 'Anime']] as const).map(([slug, name], index) => ({ slug, name, description: '', image_path: null, sort_order: index, active: true }));
 // What PostgREST returns for a product saved with admin_save_product (numeric columns may arrive as strings).
@@ -122,4 +122,21 @@ test('a brief network problem does not sign the user out; a session kept without
   const refreshed = await currentSession();
   assert.equal(refreshed?.accessToken, 'new'); assert.equal(refreshed?.remember, false);
   assert.equal(JSON.parse(tab.get('bh-session-v1')!).refreshToken, 'r2');
+});
+
+test('database rule messages are turned into plain language, never shown raw', async () => {
+  configureCatalogBackend({ url: 'https://example.supabase.co', key: 'sb_publishable_test' });
+  const session = { accessToken: 't', refreshToken: 'r', expiresAt: Date.now() + 3600_000, email: 'a@b.c', userId: 'u1', remember: true };
+  const cases: [string, RegExp][] = [
+    ['new row for relation "profiles" violates check constraint "profiles_birthday_check"', /date of birth isn't valid/],
+    ['new row for relation "profiles" violates check constraint "profiles_username_check"', /too long/],
+    ['new row for relation "product_weight_prices" violates check constraint "product_weight_prices_sale_price_ils_check"', /sale price must be lower/],
+    ['duplicate key value violates unique constraint "products_slug_key"', /already exists/],
+    ['invalid input syntax for type date: "2026-13-45"', /dates isn't valid/],
+    ['null value in column "name" of relation "products" violates not-null constraint', /aren't valid/],
+  ];
+  for (const [message, expected] of cases) {
+    mockFetch(() => json({ code: '23514', message }, 400));
+    await assert.rejects(saveProfile(session, emptyProfile()), (error: unknown) => error instanceof Error && expected.test(error.message) && !/relation|constraint|syntax/.test(error.message), message);
+  }
 });

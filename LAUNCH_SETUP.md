@@ -77,6 +77,23 @@ The site accepts both ways of confirming an email:
 Keep **Allow new users to sign up** and **Confirm email** on (**Authentication → Sign In / Providers → Email**).
 Before launch connect SMTP anyway: Supabase's built-in sender only sends a few emails per hour and is for testing.
 
+## Google, Facebook and Apple sign-in
+
+The sign-in window shows a "Continue with …" button for every provider that is switched on in Supabase, and nothing
+for the others, so customers never see a button that does not work. All of them need the site address in
+**Authentication → URL Configuration** (Site URL and Redirect URLs) first.
+
+- **Google:** Google Cloud Console → APIs & Services → OAuth consent screen (External, app name "BH Clothing") →
+  Credentials → Create OAuth client ID → Web application → Authorised redirect URI
+  `https://yazgrvobxwpyayyekwnh.supabase.co/auth/v1/callback`. Copy the Client ID and Client secret into
+  Supabase → Authentication → Sign In / Providers → Google, switch it on, Save.
+- **Facebook:** developers.facebook.com → Create app → Facebook Login → Valid OAuth Redirect URIs: the same callback
+  address. Copy the App ID and App secret into Supabase → Facebook. Facebook needs a privacy policy URL and the app in
+  Live mode before the public can use it.
+- **Apple:** needs a paid Apple Developer account; same idea (Services ID, key, the same callback address).
+
+The secrets are entered only in the Supabase dashboard, never in the code or in chat.
+
 ## Browser settings
 
 The site uses the project URL and the **publishable** key (`sb_publishable_…`) in `src/catalogStore.ts`. That key
