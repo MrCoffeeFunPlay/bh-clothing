@@ -10,7 +10,7 @@ export function WelcomeOfferModal({ onJoin }: Props) {
   useEffect(() => { if (!localStorage.getItem(seenKey)) setOpen(true); }, []);
   const close = () => { localStorage.setItem(seenKey, "1"); setOpen(false); };
   if (!open) return null;
-  const images = [products[0].image, products[5].image, products[10].image, products[3].image];
+  const images = [0, 5, 10, 3].map((index) => products[index]?.image).filter((image): image is string => Boolean(image));
   return <div className="welcome-layer" role="dialog" aria-modal="true" aria-label="BH welcome offer" onMouseDown={close}>
     <section className="welcome-offer" onMouseDown={(event) => event.stopPropagation()}>
       <button className="welcome-close" aria-label="Close offer" onClick={close}><X size={18}/></button>

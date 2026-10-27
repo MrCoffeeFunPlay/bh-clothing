@@ -32,6 +32,6 @@ A frontend-only ecommerce storefront starter for BH Clothing, built with React, 
 - Mock product data and placeholder image assets
 - Working mobile navigation, product filtering, product search, bag count, smooth section links, and newsletter confirmation state
 
-The storefront now uses the original BH product images committed in `public/catalog`. Prices and inventory remain unpublished until the owner confirms them, so these items cannot yet be purchased.
-
-The Supabase schema is prepared in `supabase/migrations/20260904_create_bh_catalog.sql`. Payments, authentication, checkout, shipping, and real customer accounts are not connected yet.
+The catalogue (products, colours, images, fabric weights, ILS/USD prices and sales) is read from Supabase and
+managed in the owner area (`#admin`) by approved admins. See `LAUNCH_SETUP.md` for what is live, how to make the
+owner an admin, and the tests. Payments, checkout, orders, stock and customer accounts are not connected yet.

@@ -22,6 +22,9 @@ export type Product = {
   gsmPrices?: Record<"220g" | "260g", { USD: number | null; ILS: number | null }>;
   gsmSalePrices?: Partial<Record<"220g" | "260g", { USD: number | null; ILS: number | null }>>;
   weightColors?: Partial<Record<"220g" | "260g", string[]>>;
+  // Set when the product comes from the live Supabase catalogue.
+  slug?: string;
+  active?: boolean;
   selectedSize?: string;
   selectedWeight?: "220g" | "260g";
 };

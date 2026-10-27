@@ -1,4 +1,7 @@
 node_modules
 dist
 .DS_Store
-*.local__pycache__
+*.local
+__pycache__
+.sales-dom
+.live-dom
