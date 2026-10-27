@@ -22,12 +22,12 @@ const { products } = await import('../.live-dom/catalog.js');
 store.configureCatalogBackend({ url: 'https://bh.example.supabase.co', key: 'sb_publishable_test' });
 
 // ---- simulated Supabase -------------------------------------------------------------------------------------------
-const categories = ['Tees', 'Hoodies', 'Shorts', 'Accessories', 'Anime'].map((name, i) => ({ slug: name.toLowerCase(), name, description: '', image_path: null, sort_order: i, active: true }));
+const categories = [['tees', 'Tees'], ['hoodies', 'Hoodies'], ['shorts', 'Pants'], ['accessories', 'Accessories'], ['anime', 'Anime']].map(([slug, name], i) => ({ slug, name, description: '', image_path: null, sort_order: i, active: true }));
 const rowFrom = (payload, id) => ({
   id, slug: payload.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), name: payload.name, category_slug: payload.category_slug, description: payload.description,
   tag: payload.tag || null, sizes: payload.sizes, fabric_weights: payload.fabric_weights, price_ils: payload.price_ils, price_usd: payload.price_usd,
   lookbook_images: payload.lookbook_images, sale_enabled: payload.sale_enabled, sale_title: payload.sale_title, sale_kind: payload.sale_kind, sale_value: payload.sale_value,
-  sale_currency: payload.sale_currency, sale_starts_at: payload.sale_starts_at, sale_ends_at: payload.sale_ends_at, active: payload.active, sort_order: id,
+  sale_currency: payload.sale_currency, sale_starts_at: payload.sale_starts_at, sale_ends_at: payload.sale_ends_at, active: payload.active, coming_soon: payload.coming_soon, sort_order: id,
   product_colours: payload.colours.map((c, i) => ({ ...c, sort_order: i })), product_weight_prices: payload.weight_prices,
 });
 let db = products.map(p => rowFrom(store.productToPayload(p, categories), p.id));
