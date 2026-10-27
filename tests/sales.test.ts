@@ -44,7 +44,7 @@ test('expired, invalid and stopped campaigns do not change totals', () => {
   assert.deepEqual(cartTotals([], 'ILS', campaign({ kind: 'amount', value: 50 }), now), { subtotal: 0, discount: 0, total: 0 });
 });
 
-test('an active product sale temporarily replaces the fixed tee sale price, then the fixed price returns', () => {
+test('an active product sale temporarily replaces the fixed tee sale price when lower, then the fixed price returns', () => {
   const start = Date.parse('2026-11-01T00:00:00Z'), end = Date.parse('2026-11-08T00:00:00Z');
   const tee = { ...products[0], sale: campaign({ kind: 'percent', value: 15, startsAt: '2026-11-01T00:00:00Z', endsAt: '2026-11-08T00:00:00Z' }) };
   // before the start: fixed sale price in both currencies
@@ -78,4 +78,16 @@ test('a store-wide sale applies once on top, never stacking two product discount
   // without the product sale the fixed sale price is the base for the store sale
   assert.deepEqual(cartTotals([{ ...tee, sale: undefined }], 'ILS', campaign({ kind: 'percent', value: 10 }), now), { subtotal: 109.99, discount: 11, total: 98.99 });
   assert.deepEqual(cartTotals([tee], 'USD', campaign({ kind: 'amount', value: 50, currency: 'ILS' }), now), { subtotal: 33.14, discount: 0, total: 33.14 });
+});
+
+test('the customer always gets the lower price: a smaller timed sale never raises the fixed sale price', () => {
+  const tee = { ...products[0], sale: campaign({ kind: 'percent', value: 5 }) };
+  // 5% off 120 = 114, higher than the fixed 109.99, so 109.99 stays
+  assert.equal(productAmount(tee, 'ILS', '220g', now), 109.99);
+  // 5% off $48.99 = $46.54, higher than the fixed $44.99
+  assert.equal(productAmount(tee, 'USD', '260g', now), 44.99);
+  const bigger = { ...products[0], sale: campaign({ kind: 'percent', value: 20 }) };
+  assert.equal(productAmount(bigger, 'ILS', '220g', now), 96);
+  assert.equal(productAmount(bigger, 'USD', '220g', now), 31.19);
+  assert.equal(productOriginalAmount(bigger, 'ILS', '220g'), 120);
 });

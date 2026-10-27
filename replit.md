@@ -11,4 +11,5 @@ This project is a frontend-only React, TypeScript, and Vite ecommerce storefront
 
 ## Current scope
 
-The storefront uses the original BH product images from `public/catalog`. Prices and inventory are intentionally unpublished until the owner confirms them. Payments, authentication, checkout, shipping, persistence, databases, and real customer accounts are not connected yet.
+The catalogue is live in Supabase and managed by approved admins in the owner area (`#admin`); see `LAUNCH_SETUP.md`.
+Payments, checkout, orders, stock and customer accounts are not connected yet.
