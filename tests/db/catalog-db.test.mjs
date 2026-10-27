@@ -11,17 +11,18 @@ const CUSTOMER = '00000000-0000-4000-8000-000000000002';
 const supabaseStandIns = `
   create role anon nologin; create role authenticated nologin;
   create schema auth;
-  create table auth.users (id uuid primary key, email text);
+  create table auth.users (id uuid primary key, email text, phone_confirmed_at timestamptz, created_at timestamptz not null default now());
   create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   grant usage on schema auth to anon, authenticated; grant execute on function auth.uid() to anon, authenticated;
   create schema storage;
   create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
   create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets (id), name text);
   alter table storage.objects enable row level security;
+  create function storage.foldername(name text) returns text[] language sql immutable as $$ select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1] $$;
   grant usage on schema storage to anon, authenticated;
   grant select, insert, update, delete on storage.objects to anon, authenticated;
   grant usage on schema public to anon, authenticated;
-  insert into auth.users values ('${ADMIN}', 'owner@example.com'), ('${CUSTOMER}', 'customer@example.com');
+  insert into auth.users (id, email) values ('${ADMIN}', 'owner@example.com'), ('${CUSTOMER}', 'customer@example.com');
 `;
 
 const db = new PGlite();
@@ -141,4 +142,61 @@ test('customers can only read and change their own profile; visitors see no prof
   });
   const customer = (await rows(`select first_name, last_name, username, country from public.profiles where id = '${CUSTOMER}'`))[0];
   assert.deepEqual(customer, { first_name: 'Noa', last_name: 'Levi', username: 'noa', country: 'Israel' });
+});
+
+test('tags: everyone can read them, only admins create, edit, delete and give them', async () => {
+  await as('visitor', async () => {
+    assert.deepEqual((await rows('select name from public.tags order by sort_order')).map(r => r.name), ['Verified', 'Top Buyer', 'BH Core', 'BH Plus', 'BH Black']);
+    await assert.rejects(db.query(`insert into public.tags (name) values ('Hacker')`), /permission denied/);
+  });
+  await as('customer', async () => {
+    await assert.rejects(db.query(`insert into public.tags (name) values ('Hacker')`), /row-level security/);
+    await assert.rejects(db.query(`insert into public.user_tags (user_id, tag_id) select '${CUSTOMER}', id from public.tags where name = 'Top Buyer'`), /row-level security/);
+    assert.equal((await db.query(`update public.tags set name = 'X' where name = 'Top Buyer'`)).affectedRows, 0);
+    assert.equal((await db.query(`delete from public.tags`)).affectedRows, 0);
+    await assert.rejects(db.query(`select * from public.admin_find_members('')`), /not authorised/);
+  });
+  await as('admin', async () => {
+    const id = (await rows(`insert into public.tags (name, icon, colour) values ('Early Supporter', 'heart', '#c0392b') returning id`))[0].id;
+    await db.query(`update public.tags set description = 'Here from day one.' where id = $1`, [id]);
+    await assert.rejects(db.query(`insert into public.tags (name, colour) values ('Bad colour', 'red')`), /check constraint/);
+    await db.query(`insert into public.user_tags (user_id, tag_id) values ('${CUSTOMER}', $1), ('${ADMIN}', $1)`, [id]);
+    const found = await rows(`select email, tag_ids from public.admin_find_members('customer')`);
+    assert.deepEqual(found.map(r => [r.email, r.tag_ids.map(Number)]), [['customer@example.com', [Number(id)]]]);
+  });
+  await as('customer', async () => {
+    // A member sees only their own tags.
+    assert.deepEqual((await rows(`select t.name from public.user_tags ut join public.tags t on t.id = ut.tag_id`)).map(r => r.name), ['Early Supporter']);
+  });
+  await as('admin', async () => {
+    await db.query(`delete from public.tags where name = 'Early Supporter'`);
+    assert.equal((await rows('select count(*)::int as n from public.user_tags'))[0].n, 0, 'deleting a tag removes it from everyone');
+  });
+});
+
+test('phone verification gives the Verified tag once the phone is confirmed', async () => {
+  await as('customer', async () => {
+    assert.equal((await rows('select public.claim_phone_tags() as n'))[0].n, 0, 'no tag before the phone is confirmed');
+  });
+  await db.query(`update auth.users set phone_confirmed_at = now() where id = '${CUSTOMER}'`);
+  await as('customer', async () => {
+    assert.equal((await rows('select public.claim_phone_tags() as n'))[0].n, 1);
+    assert.equal((await rows('select public.claim_phone_tags() as n'))[0].n, 0, 'only once');
+    assert.deepEqual((await rows(`select t.name from public.user_tags ut join public.tags t on t.id = ut.tag_id`)).map(r => r.name), ['Verified']);
+  });
+  await as('visitor', async () => {
+    await assert.rejects(db.query('select public.claim_phone_tags()'), /permission denied/);
+  });
+});
+
+test('profile pictures: members upload only into their own folder', async () => {
+  await as('customer', async () => {
+    await db.query(`insert into storage.objects (bucket_id, name) values ('avatars', '${CUSTOMER}/me.jpg')`);
+    await assert.rejects(db.query(`insert into storage.objects (bucket_id, name) values ('avatars', '${ADMIN}/me.jpg')`), /row-level security/);
+    await assert.rejects(db.query(`insert into storage.objects (bucket_id, name) values ('avatars', 'me.jpg')`), /row-level security/);
+    await db.query(`insert into public.profiles (id, avatar_url) values ('${CUSTOMER}', 'https://x.supabase.co/storage/v1/object/public/avatars/${CUSTOMER}/me.jpg') on conflict (id) do update set avatar_url = excluded.avatar_url`);
+  });
+  await as('visitor', async () => {
+    await assert.rejects(db.query(`insert into storage.objects (bucket_id, name) values ('avatars', 'x/me.jpg')`), /row-level security/);
+  });
 });
