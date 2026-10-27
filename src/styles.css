@@ -477,3 +477,8 @@ footer { background:var(--ink); color:#f9f5ed; padding:45px 5.4vw 25px; }
 .link-notice.save-ok { color: #1f5e34; background: #e8f5ec; border: 1px solid #b7dcc2; }
 .link-notice.save-fail { color: #9b2c22; background: #fbeae6; border: 1px solid #efc3ba; }
 .link-notice .icon { width: 28px; height: 28px; margin-left: auto; background: transparent; }
+.social-buttons { display: grid; gap: 10px; }
+.social-button { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 46px; padding: 0 16px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: var(--ink); font-size: 13px; font-weight: 600; text-decoration: none; transition: border-color .2s, box-shadow .2s; }
+.social-button:hover { border-color: #c9b29a; box-shadow: 0 6px 18px rgba(51, 41, 32, .08); }
+.social-button.apple { background: #111; color: #fff; border-color: #111; }
+.social-mark { width: 18px; height: 18px; flex: none; }

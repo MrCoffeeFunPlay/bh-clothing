@@ -68,7 +68,8 @@ globalThis.fetch = async (url, init = {}) => {
     if (!user || body.type !== 'signup' || body.token !== user.code) return json({ msg: 'Token has expired or is invalid' }, 403);
     user.confirmed = true; return tokenAnswer(body.email);
   }
-  if (path === '/auth/v1/user') return email ? json({ id: 'uid:' + email, email }) : json({ msg: 'invalid JWT' }, 401);
+  if (path === '/auth/v1/settings') return json({ external: { email: true, google: true, facebook: true, apple: false } });
+  if (path === '/auth/v1/user') return email ? json({ id: 'uid:' + email, email, user_metadata: users[email]?.meta ?? {} }) : json({ msg: 'invalid JWT' }, 401);
   if (path === '/auth/v1/resend') { backend.emails.push(body.email); return json({}); }
   if (path === '/auth/v1/logout') return json(undefined, 204);
   if (path.startsWith('/rest/v1/profiles')) {
@@ -274,6 +275,27 @@ await visit(undefined, '#error=access_denied&error_code=otp_expired&error_descri
 assert.match(document.querySelector('.link-notice.save-fail').textContent, /expired or was already used/);
 assert.equal(accountMenuText(), '');
 
+// 12. Google / Facebook buttons appear for the providers switched on in Supabase, and bring people back signed in.
+await click(document.querySelector('.account-menu .icon'));
+const socialLinks = [...modal().querySelectorAll('.social-button')];
+assert.deepEqual(socialLinks.map(a => a.textContent), ['Continue with Google', 'Continue with Facebook']);
+assert.equal(socialLinks[0].getAttribute('href'), 'https://bh.example.supabase.co/auth/v1/authorize?provider=google&redirect_to=http%3A%2F%2Flocalhost%2F');
+await click(modal().querySelector('.auth-close'));
+users['dana@gmail.com'] = { password: null, admin: false, confirmed: true, meta: { full_name: 'Dana Cohen' } };
+clearBrowser();
+await visit(undefined, '#access_token=token:dana@gmail.com&refresh_token=refresh:dana@gmail.com&expires_in=3600&provider_token=x&token_type=bearer');
+assert.match(document.querySelector('.link-notice.save-ok').textContent, /You're signed in/);
+assert.match(accountMenuText(), /Dana Cohen/);
+assert.deepEqual(profiles['dana@gmail.com'], { first_name: 'Dana', last_name: 'Cohen', username: '', birthday: null, country: '' });
+
+// 13. Impossible dates are explained in plain words and never sent to the database.
+const before13 = structuredClone(profiles['dana@gmail.com']);
+await set(label('Date of birth'), '0001-01-01');
+await submit(document.querySelector('.profile-form'));
+assert.match(document.querySelector('.save-banner.save-fail').textContent, /date of birth isn't valid/);
+assert.doesNotMatch(document.querySelector('.save-banner').textContent, /constraint|relation/);
+assert.deepEqual(profiles['dana@gmail.com'], before13);
+
 await act(() => root.unmount());
 rmSync('.live-dom', { recursive: true, force: true });
-console.log('PASS: real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');
+console.log('PASS: real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');
