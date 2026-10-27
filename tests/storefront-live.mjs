@@ -31,7 +31,7 @@ const rowFrom = (payload, id) => ({
   product_colours: payload.colours.map((c, i) => ({ ...c, sort_order: i })), product_weight_prices: payload.weight_prices,
 });
 let db = products.map(p => rowFrom(store.productToPayload(p, categories), p.id));
-const backend = { down: false, failNextSave: false, saves: [], emails: [], signupRedirects: [] };
+const backend = { down: false, failNextSave: false, saves: [], emails: [], signupRedirects: [], expired: new Set() };
 const users = {
   'owner@example.com': { password: 'owner-pass', admin: true, confirmed: true },
   'customer@example.com': { password: 'customer-pass', admin: false, confirmed: true },
@@ -47,6 +47,7 @@ globalThis.fetch = async (url, init = {}) => {
   const email = token?.startsWith('token:') ? token.slice(6) : null;
   const isAdmin = Boolean(email && users[email]?.admin);
   const body = init.body ? JSON.parse(init.body) : {};
+  if (token && backend.expired.has(token) && !path.startsWith('/auth/v1/token')) return json({ code: 'PGRST303', message: 'JWT expired' }, 401);
   if (path.startsWith('/rest/v1/categories')) return json(categories);
   if (path.startsWith('/rest/v1/products')) return json(structuredClone(db.filter(row => row.active || isAdmin)));
   if (path === '/auth/v1/token?grant_type=password') {
@@ -55,7 +56,7 @@ globalThis.fetch = async (url, init = {}) => {
     if (!user.confirmed) return json({ error_description: 'Email not confirmed' }, 400);
     return tokenAnswer(body.email);
   }
-  if (path === '/auth/v1/token?grant_type=refresh_token') return tokenAnswer(body.refresh_token.slice(8));
+  if (path === '/auth/v1/token?grant_type=refresh_token') { backend.expired.delete(tokenFor(body.refresh_token.slice(8))); return tokenAnswer(body.refresh_token.slice(8)); }
   if (path.startsWith('/auth/v1/signup')) {
     backend.signupRedirects.push(new URL(url).searchParams.get('redirect_to'));
     if (users[body.email]) return json({ msg: 'User already registered' }, 422);
@@ -197,6 +198,12 @@ await visit('account');
 assert.match(accountMenuText(), /owner@example\.com.*Owner area/s);
 assert.ok(btn('Owner area', document.querySelector('.account-clean-hero')));
 assert.ok(localStorage.getItem('bh-session-v1'));
+// The page stayed open past the 1-hour sign-in: the Owner area renews the token instead of showing "code is wrong".
+backend.expired.add(tokenFor('owner@example.com'));
+await navigate('admin');
+assert.ok(btn('Catalog & inventory'), 'Owner area loads after renewing the sign-in');
+assert.equal(document.querySelector('.admin-login-error'), null);
+assert.equal(backend.expired.size, 0);
 clearBrowser();
 await visit('store');
 assert.ok(!(await teeCards()).some(text => text.includes('Fallen Sword')), 'hidden product is not shown to visitors');

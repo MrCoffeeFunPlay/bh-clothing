@@ -96,6 +96,7 @@ const readableError = (body: { message?: string; msg?: string; error_description
   if (/invalid login credentials/i.test(text)) return "The email or password is not correct.";
   if (/email not confirmed/i.test(text)) return "Confirm your email first: enter the code we sent you.";
   if (/already registered|already exists/i.test(text)) return "An account with this email already exists. Log in instead.";
+  if (/jwt|bad_jwt/i.test(text)) return "Your sign-in has expired. Please sign in again.";
   if (/expired|invalid.*(otp|token)|token.*(invalid|expired)/i.test(text)) return "That code is wrong or has expired. Check the email or send a new code.";
   if (/rate limit|too many|security purposes/i.test(text)) return "Too many attempts. Please wait a minute and try again.";
   if (/password/i.test(text) && /(at least|weak|short)/i.test(text)) return "Choose a stronger password (at least 8 characters).";
@@ -247,14 +248,15 @@ export async function sessionFromConfirmationLink(hash: string): Promise<Redirec
 export const resendSignupCode = (email: string) =>
   request("/auth/v1/resend", { method: "POST", body: JSON.stringify({ type: "signup", email }) });
 
-export async function currentSession(): Promise<UserSession | null> {
+// force: refresh even when the stored token still looks valid (the server said it had expired).
+export async function currentSession(force = false): Promise<UserSession | null> {
   let stored: UserSession | null = null;
   for (const store of stores()) {
     try { stored = JSON.parse(store.getItem(SESSION_KEY) || "null"); } catch { stored = null; }
     if (stored) break;
   }
   if (!stored?.refreshToken) return null;
-  if (stored.expiresAt - Date.now() > 60_000) return stored;
+  if (!force && stored.expiresAt - Date.now() > 60_000) return stored;
   try {
     const answer = await request<TokenAnswer>("/auth/v1/token?grant_type=refresh_token", { method: "POST", body: JSON.stringify({ refresh_token: stored.refreshToken }) });
     return keep(toSession(answer, stored.remember !== false));

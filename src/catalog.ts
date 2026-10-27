@@ -67,10 +67,6 @@ const accessories = {
   Black: asset("accessories/bh-washed-cap.png"),
 };
 
-const crossbody = {
-  Black: asset("accessories/bh-crossbody.png"),
-};
-
 const animeArtBook = {
   Black: asset("anime/oni-art-book.png"),
 };
@@ -126,14 +122,12 @@ export const products: Product[] = [
   { id: 3, name: "Oni Mask", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "A fierce Oni mask, graphic framing and red accents give Oni Mask its unmistakable edge. Built around an oversized silhouette, with your choice of 220 GSM or a heavier 260 GSM feel.", ...teeImages("oni-mask"), ...teeOptions },
   { id: 4, name: "Rose", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "A detailed rose and flowing lettering bring a quieter statement to Rose. An oversized silhouette that lets the artwork speak, available in 220 GSM or the more substantial 260 GSM.", ...teeImages("rose"), ...teeOptions },
   { id: 5, name: "Loose Shorts", category: "Pants", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "BH loose shorts, available in multiple colours.", ...withProductImages(looseShorts, [], []) },
-  { id: 6, name: "Fallen Sword Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Fallen Sword artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...hoodieImages("fallen-sword") },
-  { id: 7, name: "Oni Sword Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Oni Sword artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...hoodieImages("oni-sword") },
-  { id: 8, name: "Oni Mask Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Oni Mask artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...hoodieImages("oni-mask") },
-  { id: 9, name: "Rose Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Rose artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...hoodieImages("rose") },
-  { id: 10, name: "BH Washed Cap", category: "Accessories", price: "Coming soon", rating: 0, reviews: 0, tag: "BH accessory", description: "A washed black six-panel cap for the everyday rotation.", ...withProductImages(accessories, [], []) },
-  { id: 11, name: "BH Crossbody", category: "Accessories", price: "Coming soon", rating: 0, reviews: 0, tag: "BH accessory", description: "Compact black nylon crossbody for daily essentials.", ...withProductImages(crossbody, [], []) },
-  { id: 12, name: "Oni Art Book", category: "Anime", price: "Coming soon", rating: 0, reviews: 0, tag: "BH background", description: "An original BH manga-inspired art-book placeholder for the future collection.", ...withProductImages(animeArtBook, [], []) },
-  { id: 13, name: "Oni Wall Scroll", category: "Anime", price: "Coming soon", rating: 0, reviews: 0, tag: "BH background", description: "An original BH manga-inspired wall-scroll placeholder for the future collection.", ...withProductImages(animeWallScroll, [], []) },
+  { id: 6, name: "Fallen Sword Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "Coming soon", comingSoon: true, description: "The Fallen Sword artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...hoodieImages("fallen-sword") },
+  { id: 7, name: "Oni Sword Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "Coming soon", comingSoon: true, description: "The Oni Sword artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...hoodieImages("oni-sword") },
+  { id: 8, name: "Oni Mask Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "Coming soon", comingSoon: true, description: "The Oni Mask artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...hoodieImages("oni-mask") },
+  { id: 9, name: "Rose Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "Coming soon", comingSoon: true, description: "The Rose artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...hoodieImages("rose") },
+  { id: 12, name: "Oni Art Book", category: "Anime", price: "Coming soon", rating: 0, reviews: 0, tag: "Coming soon", comingSoon: true, description: "An original BH manga-inspired art-book placeholder for the future collection.", ...withProductImages(animeArtBook, [], []) },
+  { id: 13, name: "Oni Wall Scroll", category: "Anime", price: "Coming soon", rating: 0, reviews: 0, tag: "Coming soon", comingSoon: true, description: "An original BH manga-inspired wall-scroll placeholder for the future collection.", ...withProductImages(animeWallScroll, [], []) },
   // Coming soon: real products shown locked with a silhouette until photos and prices are ready.
   { id: 14, name: "Straight Leg Pants", category: "Pants", ...comingSoon("pants-straight") },
   { id: 15, name: "Cargo Pants", category: "Pants", ...comingSoon("pants-cargo") },
