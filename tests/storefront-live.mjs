@@ -37,6 +37,15 @@ const users = {
   'customer@example.com': { password: 'customer-pass', admin: false, confirmed: true },
 };
 const profiles = {};
+let nextTagId = 3;
+const tagsDb = [
+  { id: 1, name: 'Verified', icon: 'shield-check', colour: '#2f7d5b', description: 'Verified their phone number.', rule: 'phone_verified', sort_order: 1 },
+  { id: 2, name: 'Top Buyer', icon: 'gem', colour: '#8a5a3c', description: 'One of our most loyal customers.', rule: 'manual', sort_order: 2 },
+];
+const memberTags = {}; // email -> Set of tag ids
+const tagsOf = email => (memberTags[email] ??= new Set());
+const emailOfUid = uid => uid.replace(/^uid:/, '');
+const uploads = [];
 const tokenFor = email => 'token:' + email;
 const json = (body, status = 200) => new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 const tokenAnswer = email => json({ access_token: tokenFor(email), refresh_token: 'refresh:' + email, expires_in: 3600, user: { id: 'uid:' + email, email } });
@@ -46,7 +55,7 @@ globalThis.fetch = async (url, init = {}) => {
   const token = init.headers?.Authorization?.replace('Bearer ', '');
   const email = token?.startsWith('token:') ? token.slice(6) : null;
   const isAdmin = Boolean(email && users[email]?.admin);
-  const body = init.body ? JSON.parse(init.body) : {};
+  const body = typeof init.body === 'string' ? JSON.parse(init.body) : {};
   if (token && backend.expired.has(token) && !path.startsWith('/auth/v1/token')) return json({ code: 'PGRST303', message: 'JWT expired' }, 401);
   if (path.startsWith('/rest/v1/categories')) return json(categories);
   if (path.startsWith('/rest/v1/products')) return json(structuredClone(db.filter(row => row.active || isAdmin)));
@@ -64,12 +73,23 @@ globalThis.fetch = async (url, init = {}) => {
     backend.emails.push(body.email);
     return json({ id: 'uid:' + body.email, email: body.email, confirmation_sent_at: new Date().toISOString() });
   }
-  if (path === '/auth/v1/verify') {
+  if (path === '/auth/v1/verify' && body.type !== 'phone_change') {
     const user = users[body.email];
     if (!user || body.type !== 'signup' || body.token !== user.code) return json({ msg: 'Token has expired or is invalid' }, 403);
     user.confirmed = true; return tokenAnswer(body.email);
   }
   if (path === '/auth/v1/settings') return json({ external: { email: true, google: true, facebook: true, apple: false } });
+  if (path === '/auth/v1/user' && init.method === 'PUT') {
+    if (!email) return json({ msg: 'invalid JWT' }, 401);
+    if (backend.smsOff) return json({ msg: 'Unsupported phone provider' }, 422);
+    users[email].pendingPhone = body.phone; users[email].smsCode = '654321'; return json({ id: 'uid:' + email, email });
+  }
+  if (path === '/auth/v1/verify' && body.type === 'phone_change') {
+    const user = users[email];
+    if (!user || body.phone !== user.pendingPhone || body.token !== user.smsCode) return json({ msg: 'Token has expired or is invalid' }, 403);
+    user.phone = body.phone.slice(1); user.phoneConfirmed = true; return tokenAnswer(email);
+  }
+  if (path === '/auth/v1/user' && email) return json({ id: 'uid:' + email, email, phone: users[email]?.phone ?? '', phone_confirmed_at: users[email]?.phoneConfirmed ? '2026-10-28T10:00:00Z' : null, user_metadata: users[email]?.meta ?? {} });
   if (path === '/auth/v1/user') return email ? json({ id: 'uid:' + email, email, user_metadata: users[email]?.meta ?? {} }) : json({ msg: 'invalid JWT' }, 401);
   if (path === '/auth/v1/resend') { backend.emails.push(body.email); return json({}); }
   if (path === '/auth/v1/logout') return json(undefined, 204);
@@ -82,6 +102,40 @@ globalThis.fetch = async (url, init = {}) => {
     return json(profiles[email] ? [profiles[email]] : []);
   }
   if (path === '/rest/v1/rpc/is_catalog_admin') return json(isAdmin);
+  if (path.startsWith('/storage/v1/object/avatars/')) {
+    const file = path.slice('/storage/v1/object/avatars/'.length);
+    if (!email || !file.startsWith('uid:' + email + '/')) return json({ message: 'new row violates row-level security policy' }, 403);
+    uploads.push(file); return json({ Key: 'avatars/' + file });
+  }
+  if (path.startsWith('/rest/v1/tags')) {
+    const id = Number(new URL(url).searchParams.get('id')?.replace('eq.', ''));
+    if (!init.method || init.method === 'GET') return json([...tagsDb].sort((a, b) => a.sort_order - b.sort_order || a.id - b.id));
+    if (!isAdmin) return json({ message: 'new row violates row-level security policy for table "tags"' }, 403);
+    if (init.method === 'POST') { const tag = { ...body, id: nextTagId++ }; tagsDb.push(tag); return json([tag], 201); }
+    const index = tagsDb.findIndex(tag => tag.id === id);
+    if (init.method === 'PATCH') { tagsDb[index] = { ...tagsDb[index], ...body }; return json([tagsDb[index]]); }
+    if (init.method === 'DELETE') { tagsDb.splice(index, 1); Object.values(memberTags).forEach(set => set.delete(id)); return json([{ id }]); }
+  }
+  if (path.startsWith('/rest/v1/user_tags')) {
+    const params = new URL(url).searchParams;
+    if (!init.method || init.method === 'GET') {
+      const owner = emailOfUid(params.get('user_id').replace('eq.', ''));
+      if (owner !== email && !isAdmin) return json([]);
+      return json([...tagsOf(owner)].map(id => ({ tags: tagsDb.find(tag => tag.id === id) ?? null })));
+    }
+    if (!isAdmin) return json({ message: 'new row violates row-level security policy for table "user_tags"' }, 403);
+    if (init.method === 'POST') { tagsOf(emailOfUid(body.user_id)).add(body.tag_id); return json(undefined, 201); }
+    if (init.method === 'DELETE') { tagsOf(emailOfUid(params.get('user_id').replace('eq.', ''))).delete(Number(params.get('tag_id').replace('eq.', ''))); return json(undefined, 204); }
+  }
+  if (path === '/rest/v1/rpc/claim_phone_tags') {
+    if (!email || !users[email]?.phoneConfirmed) return json(0);
+    const before = tagsOf(email).size; tagsDb.filter(tag => tag.rule === 'phone_verified').forEach(tag => tagsOf(email).add(tag.id));
+    return json(tagsOf(email).size - before);
+  }
+  if (path === '/rest/v1/rpc/admin_find_members') {
+    if (!isAdmin) return json({ code: '42501', message: 'not authorised' }, 403);
+    return json(Object.keys(users).filter(who => who.includes(body.search)).map(who => ({ id: 'uid:' + who, email: who, first_name: profiles[who]?.first_name ?? '', last_name: profiles[who]?.last_name ?? '', username: '', avatar_url: profiles[who]?.avatar_url ?? '', tag_ids: [...tagsOf(who)] })));
+  }
   if (path === '/rest/v1/rpc/admin_save_product') {
     backend.saves.push({ token, product: body.product });
     if (!isAdmin) return json({ code: '42501', message: 'Only an authorised BH admin can change the catalogue.' }, 403);
@@ -228,7 +282,7 @@ await set(label('Date of birth'), '1995-04-02');
 await submit(document.querySelector('.profile-form'));
 assert.match(document.querySelector('.save-banner.save-ok').textContent, /Your changes have been saved/);
 assert.ok(scrolls.some(options => options?.top === 0), 'page scrolls to the top');
-assert.deepEqual(profiles['customer@example.com'], { first_name: 'Noa', last_name: 'Levi', username: '', birthday: '1995-04-02', country: 'Israel' });
+assert.deepEqual(profiles['customer@example.com'], { first_name: 'Noa', last_name: 'Levi', username: '', birthday: '1995-04-02', country: 'Israel', avatar_url: '' });
 await visit('account');
 assert.equal(label('First name').value, 'Noa', 'details are still there after a refresh');
 assert.match(document.querySelector('.account-clean-hero').textContent, /Welcome back.*Noa/s);
@@ -259,7 +313,7 @@ await set(label('Confirmation code', modal()), '482915');
 await submit(modal().querySelector('form'));
 assert.equal(modal(), null);
 assert.match(accountMenuText(), /new@example\.com/);
-assert.deepEqual(profiles['new@example.com'], { first_name: '', last_name: '', username: 'shira', birthday: '2000-01-15', country: '' });
+assert.deepEqual(profiles['new@example.com'], { first_name: '', last_name: '', username: 'shira', birthday: '2000-01-15', country: '', avatar_url: '' });
 await click(btn('Sign out', document.querySelector('.account-dropdown')));
 assert.equal(backend.signupRedirects[0], 'http://localhost/', 'the confirmation link brings people back to the site');
 // An unconfirmed account cannot log in until the code is entered.
@@ -293,7 +347,7 @@ clearBrowser();
 await visit(undefined, '#access_token=token:dana@gmail.com&refresh_token=refresh:dana@gmail.com&expires_in=3600&provider_token=x&token_type=bearer');
 assert.match(document.querySelector('.link-notice.save-ok').textContent, /You're signed in/);
 assert.match(accountMenuText(), /Dana Cohen/);
-assert.deepEqual(profiles['dana@gmail.com'], { first_name: 'Dana', last_name: 'Cohen', username: '', birthday: null, country: '' });
+assert.deepEqual(profiles['dana@gmail.com'], { first_name: 'Dana', last_name: 'Cohen', username: '', birthday: null, country: '', avatar_url: '' });
 
 // 13. Impossible dates are explained in plain words and never sent to the database.
 const before13 = structuredClone(profiles['dana@gmail.com']);
@@ -303,6 +357,70 @@ assert.match(document.querySelector('.save-banner.save-fail').textContent, /date
 assert.doesNotMatch(document.querySelector('.save-banner').textContent, /constraint|relation/);
 assert.deepEqual(profiles['dana@gmail.com'], before13);
 
+// 14. Profile picture: uploaded into the member's own folder and shown on the account and in the header.
+const picture = new File([new Uint8Array([255, 216, 255, 224])], 'me.jpg', { type: 'image/jpeg' });
+const pictureInput = document.querySelector('.avatar-picker input[type=file]');
+Object.defineProperty(pictureInput, 'files', { value: [picture], configurable: true });
+await act(() => pictureInput.dispatchEvent(new Event('change', { bubbles: true }))); await settle(120);
+assert.match(document.querySelector('.save-banner.save-ok').textContent, /profile picture has been saved/);
+assert.equal(uploads.length, 1); assert.match(uploads[0], /^uid:dana@gmail\.com\/\d+\.jpg$/);
+assert.equal(profiles['dana@gmail.com'].avatar_url, 'https://bh.example.supabase.co/storage/v1/object/public/avatars/' + uploads[0]);
+assert.equal(document.querySelector('.account-clean-hero .avatar-orb img').getAttribute('src'), profiles['dana@gmail.com'].avatar_url);
+assert.ok(document.querySelector('header .account-menu .avatar-header img'), 'picture in the header');
+await click(btn('Remove', document.querySelector('.avatar-picker')));
+assert.equal(profiles['dana@gmail.com'].avatar_url, '');
+assert.equal(document.querySelector('.account-clean-hero .avatar-orb img'), null);
+
+// 15. Phone verification gives the Verified tag (and a wrong code or a missing SMS service is explained plainly).
+await click(btn('Account settings', document.querySelector('.account-dashboard aside')));
+assert.match(document.querySelector('.verify-card').textContent, /Verify with your phone/);
+backend.smsOff = true;
+await set(document.querySelector('.verify-card input[type=tel]'), '050-123-4567');
+await submit(document.querySelector('.verify-card form'));
+assert.match(document.querySelector('.save-banner.save-fail').textContent, /Phone verification isn't switched on yet/);
+backend.smsOff = false;
+await submit(document.querySelector('.verify-card form'));
+assert.equal(users['dana@gmail.com'].pendingPhone, '+972501234567', 'Israeli number sent in international format');
+await set(document.querySelector('.verify-card input[aria-label="SMS code"]'), '111111');
+await submit(document.querySelector('.verify-card form'));
+assert.match(document.querySelector('.save-banner.save-fail').textContent, /code is wrong or has expired/);
+await set(document.querySelector('.verify-card input[aria-label="SMS code"]'), '654321');
+await submit(document.querySelector('.verify-card form'));
+assert.match(document.querySelector('.save-banner.save-ok').textContent, /phone is verified/);
+assert.match(document.querySelector('.verify-card').textContent, /Your account is verified.*\+972501234567/s);
+assert.match(document.querySelector('.account-clean-hero .member-tags').textContent, /Verified/);
+await visit('account');
+assert.deepEqual([...document.querySelectorAll('.account-clean-hero .member-tag')].map(tag => tag.textContent), ['Verified'], 'tag stays after a refresh');
+
+// 16. A customer cannot create or give tags, even calling the database directly.
+await assert.rejects(store.saveTag({ name: 'Me', icon: 'star', colour: '#000000', description: '', rule: 'manual', sort_order: 1 }, 'token:dana@gmail.com'), /permission/);
+await assert.rejects(store.setMemberTag('uid:dana@gmail.com', 2, true, 'token:dana@gmail.com'), /permission/);
+
+// 17. Owner area → Member tags: create a tag and give it to a member; it shows on their profile.
+clearBrowser();
+await visit('admin');
+await signIn('owner@example.com', 'owner-pass');
+await click(btn('Member tags'));
+assert.deepEqual([...document.querySelectorAll('.tag-table .member-tag')].map(tag => tag.textContent), ['Verified', 'Top Buyer']);
+assert.equal(document.querySelector('.admin-demo-note'), null, 'tags are real, not a demo');
+await click(btn('Create tag'));
+await set(label('Tag name'), 'Early Supporter'); await set(label('Icon'), 'heart');
+await submit(document.querySelector('.tag-form'));
+assert.match(document.querySelector('.save-banner.save-ok').textContent, /"Early Supporter" tag has been saved/);
+assert.equal(tagsDb.at(-1).name, 'Early Supporter');
+await set(document.querySelector('.tag-search input'), 'dana');
+await submit(document.querySelector('.tag-search'));
+const danaRow = [...document.querySelectorAll('.member-list article')].find(row => row.textContent.includes('dana@gmail.com'));
+await click([...danaRow.querySelectorAll('.member-tag-toggles button')].find(b => b.textContent === 'Early Supporter'));
+assert.ok(tagsOf('dana@gmail.com').has(tagsDb.at(-1).id));
+await click([...document.querySelectorAll('.tag-table article')].find(row => row.textContent.includes('Top Buyer')).querySelector('button'));
+await set(label('Tag name'), 'Top Customer');
+await submit(document.querySelector('.tag-form'));
+assert.ok(tagsDb.some(tag => tag.name === 'Top Customer') && !tagsDb.some(tag => tag.name === 'Top Buyer'), 'tag edited');
+window.confirm = () => true;
+await click([...document.querySelectorAll('.tag-table article')].find(row => row.textContent.includes('Top Customer')).querySelectorAll('button')[1]);
+assert.ok(!tagsDb.some(tag => tag.name === 'Top Customer'), 'tag deleted');
+
 await act(() => root.unmount());
 rmSync('.live-dom', { recursive: true, force: true });
-console.log('PASS: real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');
+console.log('PASS: profile pictures, phone verification with the Verified tag, owner-managed member tags, real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');

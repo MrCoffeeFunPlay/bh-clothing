@@ -94,10 +94,13 @@ export function productToPayload(product: Product, categories: CategoryRow[]) {
 const readableError = (body: { message?: string; msg?: string; error_description?: string; error?: string } | null, status: number) => {
   const text = body?.message || body?.msg || body?.error_description || body?.error || "";
   if (/invalid login credentials/i.test(text)) return "The email or password is not correct.";
+  if (/phone provider|sms|phone.*(disabled|not enabled)/i.test(text)) return "Phone verification isn't switched on yet. Please try again later.";
+  if (/phone.*already|already.*phone/i.test(text)) return "This phone number is already used by another account.";
+  if (/invalid.*phone|phone.*invalid/i.test(text)) return "Check the phone number and include the country code, e.g. +972 50 123 4567.";
   if (/email not confirmed/i.test(text)) return "Confirm your email first: enter the code we sent you.";
   if (/already registered|already exists/i.test(text)) return "An account with this email already exists. Log in instead.";
   if (/jwt|bad_jwt/i.test(text)) return "Your sign-in has expired. Please sign in again.";
-  if (/expired|invalid.*(otp|token)|token.*(invalid|expired)/i.test(text)) return "That code is wrong or has expired. Check the email or send a new code.";
+  if (/expired|invalid.*(otp|token)|token.*(invalid|expired)/i.test(text)) return "That code is wrong or has expired. Check the message we sent you or send a new code.";
   if (/rate limit|too many|security purposes/i.test(text)) return "Too many attempts. Please wait a minute and try again.";
   if (/password/i.test(text) && /(at least|weak|short)/i.test(text)) return "Choose a stronger password (at least 8 characters).";
   if (status === 401 || status === 403 || /permission denied|row-level security|authorised/i.test(text)) return "You don't have permission to do this. Sign in again.";
@@ -278,19 +281,102 @@ export const isCatalogAdmin = (session: UserSession) =>
 // ---------------------------------------------------------------------------------------------------------------
 // Customer profile (public.profiles): each user reads and saves only their own row.
 // ---------------------------------------------------------------------------------------------------------------
-export type Profile = { first_name: string; last_name: string; username: string; birthday: string | null; country: string };
-export const emptyProfile = (): Profile => ({ first_name: "", last_name: "", username: "", birthday: null, country: "" });
+export type Profile = { first_name: string; last_name: string; username: string; birthday: string | null; country: string; avatar_url: string };
+export const emptyProfile = (): Profile => ({ first_name: "", last_name: "", username: "", birthday: null, country: "", avatar_url: "" });
+const PROFILE_COLUMNS = "first_name,last_name,username,birthday,country,avatar_url";
 
 export async function fetchProfile(session: UserSession): Promise<Profile | null> {
-  const rows = await request<Profile[]>(`/rest/v1/profiles?id=eq.${encodeURIComponent(session.userId)}&select=first_name,last_name,username,birthday,country`, {}, session.accessToken);
+  const rows = await request<Profile[]>(`/rest/v1/profiles?id=eq.${encodeURIComponent(session.userId)}&select=${PROFILE_COLUMNS}`, {}, session.accessToken);
   return rows?.[0] ?? null;
 }
 
 export async function saveProfile(session: UserSession, profile: Profile): Promise<Profile> {
-  const rows = await request<Profile[]>("/rest/v1/profiles?on_conflict=id&select=first_name,last_name,username,birthday,country", {
+  const rows = await request<Profile[]>(`/rest/v1/profiles?on_conflict=id&select=${PROFILE_COLUMNS}`, {
     method: "POST", body: JSON.stringify({ id: session.userId, ...profile, birthday: profile.birthday || null }),
     headers: { Prefer: "resolution=merge-duplicates,return=representation" },
   }, session.accessToken);
   if (!rows?.[0]) throw new CatalogError("Your details were not saved. Please try again.");
   return rows[0];
+}
+
+// Profile picture: stored in the public "avatars" bucket, inside the member's own folder (<user id>/…).
+export async function uploadAvatar(session: UserSession, image: Blob) {
+  if (!config) throw new CatalogError("The live store database is not configured.");
+  if (!["image/jpeg", "image/png", "image/webp"].includes(image.type)) throw new CatalogError("Use a JPG, PNG or WebP image.");
+  if (image.size > 2 * 1024 * 1024) throw new CatalogError("The picture is too large. Choose one up to 2 MB.");
+  const extension = image.type === "image/png" ? "png" : image.type === "image/webp" ? "webp" : "jpg";
+  const path = `${session.userId}/${Date.now()}.${extension}`;
+  await request(`/storage/v1/object/avatars/${path}`, { method: "POST", body: image, headers: { "Content-Type": image.type, "x-upsert": "false" } }, session.accessToken);
+  return `${config.url}/storage/v1/object/public/avatars/${path}`;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Tags: badges shown under a member's name. The owner creates them and gives them out; "phone_verified" tags are
+// collected automatically once the member confirms their phone number.
+// ---------------------------------------------------------------------------------------------------------------
+export const tagIcons = ["badge-check", "shield-check", "crown", "sparkles", "gem", "star", "heart", "flame", "zap", "trophy"] as const;
+export type TagIcon = (typeof tagIcons)[number];
+export type Tag = { id: number; name: string; icon: TagIcon; colour: string; description: string; rule: "manual" | "phone_verified"; sort_order: number };
+export type TagDraft = Omit<Tag, "id"> & { id?: number };
+export type Member = { id: string; email: string; first_name: string; last_name: string; username: string; avatar_url: string; tag_ids: number[] };
+const TAG_COLUMNS = "id,name,icon,colour,description,rule,sort_order";
+const byOrder = (a: Tag, b: Tag) => a.sort_order - b.sort_order || a.id - b.id;
+
+export async function fetchTags(token?: string) {
+  return (await request<Tag[]>(`/rest/v1/tags?select=${TAG_COLUMNS}&order=sort_order,id`, {}, token)) ?? [];
+}
+
+export async function fetchMyTags(session: UserSession) {
+  const rows = await request<{ tags: Tag | null }[]>(`/rest/v1/user_tags?user_id=eq.${encodeURIComponent(session.userId)}&select=tags(${TAG_COLUMNS})`, {}, session.accessToken);
+  return (rows ?? []).map(row => row.tags).filter((tag): tag is Tag => Boolean(tag)).sort(byOrder);
+}
+
+export async function saveTag(tag: TagDraft, token: string) {
+  const { id, ...fields } = tag;
+  const body = JSON.stringify({ ...fields, name: fields.name.trim(), description: fields.description.trim() });
+  const rows = id
+    ? await request<Tag[]>(`/rest/v1/tags?id=eq.${id}&select=${TAG_COLUMNS}`, { method: "PATCH", body, headers: { Prefer: "return=representation" } }, token)
+    : await request<Tag[]>(`/rest/v1/tags?select=${TAG_COLUMNS}`, { method: "POST", body, headers: { Prefer: "return=representation" } }, token);
+  if (!rows?.[0]) throw new CatalogError("The tag was not saved. You may not have permission.");
+  return rows[0];
+}
+
+export async function deleteTag(id: number, token: string) {
+  const rows = await request<Tag[]>(`/rest/v1/tags?id=eq.${id}&select=id`, { method: "DELETE", headers: { Prefer: "return=representation" } }, token);
+  if (!rows?.length) throw new CatalogError("The tag was not deleted. You may not have permission.");
+}
+
+export const findMembers = (search: string, token: string) =>
+  request<Member[]>("/rest/v1/rpc/admin_find_members", { method: "POST", body: JSON.stringify({ search }) }, token).then(rows => rows ?? []);
+
+export async function setMemberTag(userId: string, tagId: number, give: boolean, token: string) {
+  if (give) await request("/rest/v1/user_tags", { method: "POST", body: JSON.stringify({ user_id: userId, tag_id: tagId }), headers: { Prefer: "return=minimal" } }, token);
+  else await request(`/rest/v1/user_tags?user_id=eq.${encodeURIComponent(userId)}&tag_id=eq.${tagId}`, { method: "DELETE" }, token);
+}
+
+// Phone verification (Supabase Auth sends the SMS code; needs an SMS provider switched on in the Supabase dashboard).
+export const claimPhoneTags = (session: UserSession) =>
+  request<number>("/rest/v1/rpc/claim_phone_tags", { method: "POST", body: "{}" }, session.accessToken);
+
+export async function phoneStatus(session: UserSession) {
+  const user = await request<{ phone?: string; phone_confirmed_at?: string | null; new_phone?: string }>("/auth/v1/user", {}, session.accessToken);
+  return { phone: user?.phone ?? "", verified: Boolean(user?.phone && user?.phone_confirmed_at) };
+}
+
+// International format: + and country code, e.g. 050-123-4567 in Israel becomes +972501234567.
+export function normalisePhone(value: string) {
+  const digits = value.replace(/[^\d+]/g, "");
+  if (/^\+\d{8,15}$/.test(digits)) return digits;
+  if (/^0\d{8,9}$/.test(digits)) return "+972" + digits.slice(1);
+  return "";
+}
+
+export const sendPhoneCode = (session: UserSession, phone: string) =>
+  request("/auth/v1/user", { method: "PUT", body: JSON.stringify({ phone }) }, session.accessToken);
+
+export async function confirmPhoneCode(session: UserSession, phone: string, code: string) {
+  const answer = await request<TokenAnswer>("/auth/v1/verify", { method: "POST", body: JSON.stringify({ type: "phone_change", phone, token: code.trim() }) }, session.accessToken);
+  const next = answer?.access_token ? keep(toSession(answer, session.remember))! : session;
+  await claimPhoneTags(next);
+  return next;
 }

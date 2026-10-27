@@ -505,3 +505,71 @@ footer { background:var(--ink); color:#f9f5ed; padding:45px 5.4vw 25px; }
 .social-button:hover { border-color: #c9b29a; box-shadow: 0 6px 18px rgba(51, 41, 32, .08); }
 .social-button.apple { background: #111; color: #fff; border-color: #111; }
 .social-mark { width: 18px; height: 18px; flex: none; }
+
+/* Header menus sit above the open search bar; after a click they close until the pointer leaves. */
+header { z-index: 40; }
+@media (hover: hover) {
+  .nav-menu[data-closed] .nav-dropdown, .account-menu[data-closed] .account-dropdown { display: none !important; }
+}
+
+/* Profile pictures */
+.avatar { flex: none; overflow: hidden; }
+.avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.avatar.avatar-orb { width: 70px; height: 70px; display: grid; place-items: center; }
+.icon.has-avatar { padding: 0; overflow: hidden; }
+.avatar-header { width: 34px; height: 34px; display: block; border-radius: 50%; box-shadow: 0 0 0 2px #fffaf4, 0 0 0 3px #d9bfa6; }
+.avatar-large { width: 92px; height: 92px; display: grid; place-items: center; border-radius: 28px; background: linear-gradient(145deg, #8175de, #b1a7ff); color: #fff; font-size: 24px; font-weight: 700; box-shadow: 0 12px 21px rgba(112, 96, 210, .2); }
+.avatar-picker { display: flex; gap: 22px; align-items: center; margin: 0 0 26px; padding: 20px; border: 1px solid #ead8c6; border-radius: 22px; background: #fffcf8; }
+.avatar-picker h3 { margin: 0 0 4px; font-size: 17px; }
+.avatar-picker p { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
+.avatar-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.avatar-actions label { position: relative; cursor: pointer; }
+.avatar-actions label.disabled { opacity: .6; pointer-events: none; }
+.avatar-actions input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+/* Member tags: the same look as the BH OWNER label, in the tag's own colour. */
+.member-tags { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+.member-tag { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border: 1px solid color-mix(in srgb, var(--tag) 38%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--tag) 9%, #fffdf9); color: var(--tag); font-size: 10.5px; font-weight: 700; letter-spacing: .14em; line-height: 1; text-transform: uppercase; white-space: nowrap; }
+.member-tag svg { flex: none; }
+
+/* Account settings: verify with phone */
+.verify-card { display: flex; gap: 18px; align-items: flex-start; margin: 0 0 22px; padding: 22px; border: 1px solid #d9e6dc; border-radius: 22px; background: linear-gradient(130deg, #f1f8f2, #fffdf9 70%); }
+.verify-card h3 { margin: 4px 0; font-size: 20px; }
+.verify-card h3 span { color: #2f7d5b; }
+.verify-card p:not(.eyebrow) { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
+.verify-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.verify-row input { flex: 1 1 200px; min-width: 0; padding: 12px 16px; border: 1px solid #d6dccf; border-radius: 999px; background: #fff; font: inherit; }
+
+/* Owner area: member tags */
+.tag-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.tag-form .wide { grid-column: 1 / -1; }
+.tag-form input[type=color] { height: 44px; padding: 4px; }
+.tag-preview { display: flex; gap: 10px; align-items: center; color: var(--muted); font-size: 13px; }
+.tag-form-actions { display: flex; gap: 10px; }
+.tag-table { display: grid; gap: 10px; margin: 18px 0 30px; }
+.tag-table article { display: grid; grid-template-columns: minmax(130px, auto) 1fr auto auto; gap: 14px; align-items: center; padding: 14px 16px; border: 1px solid #eadccd; border-radius: 16px; background: #fffdf9; }
+.tag-table article p { margin: 0; font-size: 13px; }
+.tag-table article small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+.ghost-pill.danger { color: #a3412f; }
+.tag-members-title { margin: 8px 0 12px; font-size: 20px; }
+.tag-search { display: flex; gap: 10px; align-items: center; padding: 6px 6px 6px 16px; border: 1px solid #e2cfbd; border-radius: 999px; background: #fff; }
+.tag-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; }
+.member-list { display: grid; gap: 10px; margin-top: 14px; }
+.member-list article { display: grid; grid-template-columns: auto minmax(160px, 1fr) 2fr; gap: 14px; align-items: center; padding: 12px 14px; border: 1px solid #eadccd; border-radius: 16px; background: #fffdf9; }
+.member-list article small { display: block; color: var(--muted); font-size: 12px; }
+.member-tag-toggles { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.member-tag-toggles button { padding: 0; border-radius: 999px; background: none; opacity: .38; filter: grayscale(.7); transition: opacity .2s, filter .2s, transform .2s; }
+.member-tag-toggles button:hover { opacity: .75; transform: translateY(-1px); }
+.member-tag-toggles button.on { opacity: 1; filter: none; }
+@media (max-width: 700px) {
+  .tag-form { grid-template-columns: 1fr; }
+  .tag-table article, .member-list article { grid-template-columns: 1fr; }
+  .member-tag-toggles { justify-content: flex-start; }
+  .avatar-picker, .verify-card { flex-direction: column; align-items: flex-start; }
+}
+
+/* BH Club: Gift Cards tab */
+.gift-amounts { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 22px; }
+.gift-amounts span { padding: 8px 14px; border: 1px solid #e0c9b3; border-radius: 999px; background: rgba(255, 255, 255, .7); color: #5a4436; font-size: 12px; font-weight: 700; }
+.gift-glass { transform: rotate(-3deg); }
+.gift-feature h2 { margin-bottom: 18px; }
