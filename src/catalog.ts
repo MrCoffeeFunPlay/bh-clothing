@@ -22,6 +22,8 @@ export type Product = {
   gsmPrices?: Record<"220g" | "260g", { USD: number | null; ILS: number | null }>;
   gsmSalePrices?: Partial<Record<"220g" | "260g", { USD: number | null; ILS: number | null }>>;
   weightColors?: Partial<Record<"220g" | "260g", string[]>>;
+  // A real product shown locked ("coming soon"): visible, but cannot be bought yet.
+  comingSoon?: boolean;
   // Set when the product comes from the live Supabase catalogue.
   slug?: string;
   active?: boolean;
@@ -78,15 +80,11 @@ const animeWallScroll = {
 };
 
 
-const fallenSwordHoodie = { White: asset("hoodies/fallen-sword-white-new.png"), Black: asset("hoodies/fallen-sword-black-new.png"), Gray: asset("hoodies/fallen-sword-gray-new.png") };
-const oniSwordHoodie = { Black: asset("hoodies/oni-sword-black-new.png"), Gray: asset("hoodies/oni-sword-gray-new.png"), White: asset("hoodies/oni-sword-white-new.png") };
-const oniMaskHoodie = { Gray: asset("hoodies/oni-mask-gray-new.png"), Black: asset("hoodies/oni-mask-black-new.png"), White: asset("hoodies/oni-mask-white-new.png") };
-const roseHoodie = { White: asset("hoodies/rose-white-new.png"), Black: asset("hoodies/rose-black-new.png"), Gray: asset("hoodies/rose-gray-new.png") };
-
-const fallenSwordHoodieBack = { White: asset("hoodies/fallen-sword-white-back-printed.jpg"), Black: asset("hoodies/fallen-sword-black-back-printed.jpg"), Gray: asset("hoodies/fallen-sword-gray-back-printed.jpg") };
-const oniSwordHoodieBack = { Black: asset("hoodies/oni-sword-black-back-printed.jpg"), Gray: asset("hoodies/oni-sword-gray-back-printed.jpg"), White: asset("hoodies/oni-sword-white-back-printed.jpg") };
-const oniMaskHoodieBack = { Gray: asset("hoodies/oni-mask-gray-back-printed.jpg"), Black: asset("hoodies/oni-mask-black-back-printed.jpg"), White: asset("hoodies/oni-mask-white-back-printed.jpg") };
-const roseHoodieBack = { White: asset("hoodies/rose-white-back-printed.jpg"), Black: asset("hoodies/rose-black-back-printed.jpg"), Gray: asset("hoodies/rose-gray-back-printed.jpg") };
+// Hoodies: digital mockups made like the tees (tools/tee-mockups/build_hoodies.py), on a concrete studio backdrop.
+const hoodieColours = ["White", "Black", "Gray"];
+const hoodieImages = (design: string) => withProductImages(
+  Object.fromEntries(hoodieColours.map(colour => [colour, asset(`hoodies/${design}/${colour.toLowerCase()}-front.jpg`)])), [], [],
+  Object.fromEntries(hoodieColours.map(colour => [colour, asset(`hoodies/${design}/${colour.toLowerCase()}-back.jpg`)])));
 
 // Tee colours. To add a colour: give it a swatch here, list it under each fabric weight it is sold in,
 // and add public/catalog/tees/<design>/<colour-slug>-front.jpg and -back.jpg for every design.
@@ -107,6 +105,12 @@ const teeImages = (design: string) => ({
   weightColors: teeColoursByWeight,
 });
 
+// A locked product: silhouette image (tools/tee-mockups/build_silhouettes.py), no price, cannot be bought yet.
+const comingSoon = (silhouette: string) => ({
+  price: "Coming soon", rating: 0, reviews: 0, tag: "Coming soon", comingSoon: true, description: "Coming soon to BH. This piece is locked for now.",
+  ...withProductImages({ Black: asset(`coming-soon/${silhouette}.png`) }, [], []), sizes: [] as string[],
+});
+
 // Owner-confirmed tee prices, identical for all four designs. USD = ILS ÷ 3.1120, rounded up to .99
 // (Bank of Israel representative rate for 23 Oct 2026, as shown on Mizrahi-Tefahot and Leumi rate pages, checked 26 Oct 2026).
 export const teeUsdRate = 3.112;
@@ -121,21 +125,32 @@ export const products: Product[] = [
   { id: 2, name: "Oni Blade", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "Crossed katana blades meet cherry blossom in Oni Blade — a balance of sharp lines and delicate detail. An oversized everyday silhouette, available in 220 GSM or the heavier 260 GSM.", ...teeImages("oni-blade"), ...teeOptions },
   { id: 3, name: "Oni Mask", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "A fierce Oni mask, graphic framing and red accents give Oni Mask its unmistakable edge. Built around an oversized silhouette, with your choice of 220 GSM or a heavier 260 GSM feel.", ...teeImages("oni-mask"), ...teeOptions },
   { id: 4, name: "Rose", category: "Tees", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "A detailed rose and flowing lettering bring a quieter statement to Rose. An oversized silhouette that lets the artwork speak, available in 220 GSM or the more substantial 260 GSM.", ...teeImages("rose"), ...teeOptions },
-  { id: 5, name: "Loose Shorts", category: "Shorts", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "BH loose shorts, available in multiple colours.", ...withProductImages(looseShorts, [], []) },
-  { id: 6, name: "Fallen Sword Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Fallen Sword artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...withProductImages(fallenSwordHoodie, [asset("lookbook/fallen-sword-hoodie-parking.png"), asset("lookbook/fallen-sword-hoodie-model.png")], [], fallenSwordHoodieBack) },
-  { id: 7, name: "Oni Sword Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Oni Sword artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...withProductImages(oniSwordHoodie, [asset("lookbook/oni-sword-street.png"), asset("lookbook/oni-sword-hoodie-parking.png"), asset("lookbook/oni-sword-hoodie-model.png")], [], oniSwordHoodieBack) },
-  { id: 8, name: "Oni Mask Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Oni Mask artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...withProductImages(oniMaskHoodie, [asset("lookbook/oni-mask-hoodie-parking.png"), asset("lookbook/oni-mask-hoodie-model.png")], [], oniMaskHoodieBack) },
-  { id: 9, name: "Rose Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Rose artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...withProductImages(roseHoodie, [asset("lookbook/rose-street.png"), asset("lookbook/rose-hoodie-parking.png"), asset("lookbook/rose-hoodie-model.png")], [], roseHoodieBack) },
+  { id: 5, name: "Loose Shorts", category: "Pants", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "BH loose shorts, available in multiple colours.", ...withProductImages(looseShorts, [], []) },
+  { id: 6, name: "Fallen Sword Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Fallen Sword artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...hoodieImages("fallen-sword") },
+  { id: 7, name: "Oni Sword Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Oni Sword artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...hoodieImages("oni-sword") },
+  { id: 8, name: "Oni Mask Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Oni Mask artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...hoodieImages("oni-mask") },
+  { id: 9, name: "Rose Hoodie", category: "Hoodies", price: "Coming soon", rating: 0, reviews: 0, tag: "BH original", description: "The Rose artwork on a heavyweight pullover hoodie with drawstrings and a kangaroo pocket.", ...hoodieImages("rose") },
   { id: 10, name: "BH Washed Cap", category: "Accessories", price: "Coming soon", rating: 0, reviews: 0, tag: "BH accessory", description: "A washed black six-panel cap for the everyday rotation.", ...withProductImages(accessories, [], []) },
   { id: 11, name: "BH Crossbody", category: "Accessories", price: "Coming soon", rating: 0, reviews: 0, tag: "BH accessory", description: "Compact black nylon crossbody for daily essentials.", ...withProductImages(crossbody, [], []) },
   { id: 12, name: "Oni Art Book", category: "Anime", price: "Coming soon", rating: 0, reviews: 0, tag: "BH background", description: "An original BH manga-inspired art-book placeholder for the future collection.", ...withProductImages(animeArtBook, [], []) },
   { id: 13, name: "Oni Wall Scroll", category: "Anime", price: "Coming soon", rating: 0, reviews: 0, tag: "BH background", description: "An original BH manga-inspired wall-scroll placeholder for the future collection.", ...withProductImages(animeWallScroll, [], []) },
+  // Coming soon: real products shown locked with a silhouette until photos and prices are ready.
+  { id: 14, name: "Straight Leg Pants", category: "Pants", ...comingSoon("pants-straight") },
+  { id: 15, name: "Cargo Pants", category: "Pants", ...comingSoon("pants-cargo") },
+  { id: 16, name: "Jogger Pants", category: "Pants", ...comingSoon("pants-jogger") },
+  { id: 17, name: "Classic Shorts", category: "Pants", ...comingSoon("shorts") },
+  { id: 18, name: "Gourmet Bracelet", category: "Accessories", ...comingSoon("bracelet") },
+  { id: 19, name: "Gourmet Chain", category: "Accessories", ...comingSoon("chain") },
+  { id: 20, name: "BH Cap", category: "Accessories", ...comingSoon("cap") },
+  { id: 21, name: "Anime Hoodie", category: "Anime", ...comingSoon("hoodie") },
+  { id: 22, name: "Anime Tee", category: "Anime", ...comingSoon("tee") },
+  { id: 23, name: "Anime Pants", category: "Anime", ...comingSoon("pants-wide") },
 ];
 
 export const categories = [
   ["Tees", "Original BH artwork, built for everyday.", asset("tees/fallen-sword/black-front.jpg")],
-  ["Hoodies", "Pullover weight, drawstrings and kangaroo pockets.", oniSwordHoodie.Black],
-  ["Shorts", "Relaxed fit, made to move.", looseShorts.Black],
+  ["Hoodies", "Pullover weight, drawstrings and kangaroo pockets.", asset("hoodies/oni-sword/black-front.jpg")],
+  ["Pants", "Relaxed fit, made to move.", looseShorts.Black],
   ["Accessories", "Caps, bags and finishing pieces.", accessories.Black],
   ["Anime", "Original manga-inspired BH background pieces.", animeWallScroll.Black],
 ] as const;

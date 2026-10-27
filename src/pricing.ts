@@ -16,6 +16,7 @@ export function saleAmount(original: number, sale: Sale | undefined, currency: C
   return money(Math.max(0, original - (sale!.kind === "percent" ? original * sale!.value / 100 : sale!.value)));
 }
 export function productOriginalAmount(product: Product, currency: Currency, weight = product.selectedWeight || product.cottonWeights?.[0]) {
+  if (product.comingSoon) return null; // locked products cannot be bought yet
   const validPrice = (amount: number | null | undefined) => typeof amount === "number" && Number.isFinite(amount) && amount > 0 ? money(amount) : null;
   if (product.gsmPrices) return validPrice(weight ? product.gsmPrices[weight]?.[currency] : null);
   if (product.prices) return validPrice(product.prices[currency]);

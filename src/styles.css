@@ -477,6 +477,28 @@ footer { background:var(--ink); color:#f9f5ed; padding:45px 5.4vw 25px; }
 .link-notice.save-ok { color: #1f5e34; background: #e8f5ec; border: 1px solid #b7dcc2; }
 .link-notice.save-fail { color: #9b2c22; background: #fbeae6; border: 1px solid #efc3ba; }
 .link-notice .icon { width: 28px; height: 28px; margin-left: auto; background: transparent; }
+
+/* Coming soon: locked products, shown like a locked item in a game */
+.locked-visual { position: relative; display: block; width: 100%; aspect-ratio: 3 / 4; overflow: hidden; background: radial-gradient(circle at 50% 42%, #3a3140 0%, #1f1b24 52%, #131117 100%); }
+.locked-visual::after { content: ""; position: absolute; inset: 10px; border: 1px solid rgba(255, 255, 255, .08); border-radius: 12px; pointer-events: none; }
+.locked-visual img, .card-image .locked-visual img { position: absolute; inset: 9% 11% 18%; width: 78%; height: 73%; aspect-ratio: auto; object-fit: contain; filter: grayscale(1) brightness(.5) contrast(1.15) blur(2.5px); opacity: .85; transform: scale(1.02); }
+.locked-badge { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: grid; place-items: center; width: 46px; height: 46px; border-radius: 14px; color: #d9d4e2; background: rgba(20, 17, 24, .78); border: 1px solid rgba(217, 212, 226, .35); box-shadow: 0 0 22px rgba(160, 140, 200, .25); }
+.locked-label { position: absolute; left: 0; right: 0; bottom: 14%; text-align: center; color: #9b97a3; font-size: 11px; font-weight: 700; letter-spacing: .32em; text-transform: uppercase; }
+.locked-visual.large { aspect-ratio: 3 / 4; border-radius: inherit; }
+.locked-visual.large .locked-badge { width: 70px; height: 70px; border-radius: 20px; }
+.locked-visual.large .locked-label { font-size: 15px; }
+.card.locked .card-image { background: #131117; }
+.card-image > span.locked-visual { position: relative; inset: auto; top: auto; left: auto; right: auto; bottom: auto; display: block; width: 100%; padding: 0; margin: 0; border-radius: 0; font-size: inherit; letter-spacing: normal; text-transform: none; color: inherit; background: radial-gradient(circle at 50% 42%, #3a3140 0%, #1f1b24 52%, #131117 100%); }
+.card.locked strong { color: var(--muted); }
+.product-locked .main-image { cursor: default; padding: 0; overflow: hidden; display: block; background: #131117; }
+.main-image .locked-visual .locked-badge { position: absolute; top: 50%; left: 50%; bottom: auto; padding: 0; color: #d9d4e2; background: rgba(20, 17, 24, .78); }
+.main-image .locked-visual .locked-label { position: absolute; left: 0; right: 0; bottom: 14%; padding: 0; display: block; border-radius: 0; color: #9b97a3; background: none; box-shadow: none; }
+.main-image > span.locked-visual { position: relative; inset: auto; top: auto; left: auto; right: auto; bottom: auto; display: block; width: 100%; padding: 0; margin: 0; font-size: inherit; letter-spacing: normal; text-transform: none; z-index: auto; aspect-ratio: 4 / 5; background: radial-gradient(circle at 50% 42%, #3a3140 0%, #1f1b24 52%, #131117 100%); }
+.locked-price { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); }
+.locked-note { padding: 12px 14px; border-radius: 12px; background: #f2ece4; color: var(--muted); font-size: 13px; }
+.inventory-status.locked { color: #6d5b86; }
+.coming-soon-toggle { display: flex !important; flex-direction: row !important; align-items: center; gap: 10px; font-size: 13px; }
+.coming-soon-toggle input { width: 18px !important; height: 18px; accent-color: var(--wine); }
 .social-buttons { display: grid; gap: 10px; }
 .social-button { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 46px; padding: 0 16px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: var(--ink); font-size: 13px; font-weight: 600; text-decoration: none; transition: border-color .2s, box-shadow .2s; }
 .social-button:hover { border-color: #c9b29a; box-shadow: 0 6px 18px rgba(51, 41, 32, .08); }

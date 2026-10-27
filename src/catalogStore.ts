@@ -30,7 +30,7 @@ export type ProductRow = {
   id: number; slug: string; name: string; category_slug: string; description: string; tag: string | null; sizes: string[];
   fabric_weights: Weight[]; price_ils: Money; price_usd: Money; lookbook_images: string[];
   sale_enabled: boolean; sale_title: string; sale_kind: "percent" | "amount"; sale_value: Money; sale_currency: Currency;
-  sale_starts_at: string | null; sale_ends_at: string | null; active: boolean; sort_order: number;
+  sale_starts_at: string | null; sale_ends_at: string | null; active: boolean; coming_soon?: boolean; sort_order: number;
   product_colours: ColourRow[]; product_weight_prices: WeightPriceRow[];
 };
 
@@ -47,7 +47,7 @@ export function productFromRow(row: ProductRow, categories: CategoryRow[]): Prod
     startsAt: row.sale_starts_at ?? "", endsAt: row.sale_ends_at ?? "",
   };
   return {
-    id: row.id, slug: row.slug, active: row.active, name: row.name,
+    id: row.id, slug: row.slug, active: row.active, comingSoon: row.coming_soon === true, name: row.name,
     category: categories.find(category => category.slug === row.category_slug)?.name ?? row.category_slug,
     price: "Coming soon", rating: 0, reviews: 0, tag: row.tag ?? undefined, description: row.description, sizes: row.sizes,
     color: names.join(", "), image: colours[0]?.front_image ?? "", images: colours.map(colour => colour.front_image),
@@ -80,6 +80,7 @@ export function productToPayload(product: Product, categories: CategoryRow[]) {
     sale_enabled: Boolean(sale?.enabled), sale_title: sale?.title ?? "", sale_kind: sale?.kind ?? "percent", sale_value: sale?.value ?? 0,
     sale_currency: sale?.currency ?? "ILS", sale_starts_at: sale?.startsAt || null, sale_ends_at: sale?.endsAt || null,
     active: product.active ?? true,
+    coming_soon: product.comingSoon === true,
     colours: colourNames.map(name => ({ name, hex: product.colorHexes?.[name] ?? "#8d8275", front_image: product.colorImages![name], back_image: product.backImages?.[name] ?? null })),
     weight_prices: weights.map(weight => ({
       weight,

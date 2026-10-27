@@ -4,7 +4,7 @@ import { products } from '../src/catalog.ts';
 import { productAmount, productOriginalAmount } from '../src/pricing.ts';
 import { CatalogError, configureCatalogBackend, currentSession, emptyProfile, fetchCatalog, productFromRow, productToPayload, saveProduct, saveProfile, type CategoryRow, type ProductRow } from '../src/catalogStore.ts';
 
-const categories: CategoryRow[] = ['Tees', 'Hoodies', 'Shorts', 'Accessories', 'Anime'].map((name, index) => ({ slug: name.toLowerCase(), name, description: '', image_path: null, sort_order: index, active: true }));
+const categories: CategoryRow[] = ([['tees', 'Tees'], ['hoodies', 'Hoodies'], ['shorts', 'Pants'], ['accessories', 'Accessories'], ['anime', 'Anime']] as const).map(([slug, name], index) => ({ slug, name, description: '', image_path: null, sort_order: index, active: true }));
 // What PostgREST returns for a product saved with admin_save_product (numeric columns may arrive as strings).
 const rowFrom = (payload: ReturnType<typeof productToPayload>, id: number, numbersAsText = false): ProductRow => {
   const money = (value: number | null) => value === null ? null : numbersAsText ? value.toFixed(2) : value;
@@ -13,7 +13,7 @@ const rowFrom = (payload: ReturnType<typeof productToPayload>, id: number, numbe
     tag: payload.tag || null, sizes: payload.sizes, fabric_weights: payload.fabric_weights, price_ils: money(payload.price_ils), price_usd: money(payload.price_usd),
     lookbook_images: payload.lookbook_images, sale_enabled: payload.sale_enabled, sale_title: payload.sale_title, sale_kind: payload.sale_kind,
     sale_value: payload.sale_value, sale_currency: payload.sale_currency, sale_starts_at: payload.sale_starts_at, sale_ends_at: payload.sale_ends_at,
-    active: payload.active, sort_order: id,
+    active: payload.active, coming_soon: payload.coming_soon, sort_order: id,
     product_colours: payload.colours.map((colour, index) => ({ ...colour, sort_order: index })).reverse(),
     product_weight_prices: payload.weight_prices.map(price => ({ ...price, price_ils: money(price.price_ils), price_usd: money(price.price_usd), sale_price_ils: money(price.sale_price_ils), sale_price_usd: money(price.sale_price_usd) })),
   };
@@ -25,6 +25,7 @@ test('every product survives the trip to the database and back unchanged', () =>
     for (const original of products) {
       const live = productFromRow(rowFrom(productToPayload(original, categories), original.id, numbersAsText), categories);
       for (const key of ['name', 'category', 'description', 'sizes', 'image', 'colorImages', 'backImages', 'colorHexes', 'lookbookImages'] as const) {
+        assert.equal(live.comingSoon, original.comingSoon === true, `${original.name}: comingSoon`);
         assert.deepEqual(live[key], original[key], `${original.name}: ${key}`);
       }
       assert.deepEqual(live.cottonWeights, original.cottonWeights ?? []);

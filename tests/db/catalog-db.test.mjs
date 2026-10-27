@@ -49,7 +49,11 @@ const tee = (extra = {}) => ({
 
 test('the seed copies the live catalogue unchanged, without stock or invented prices', async () => {
   assert.equal((await rows('select count(*)::int as n from public.categories'))[0].n, 5);
-  assert.equal((await rows('select count(*)::int as n from public.products'))[0].n, 13);
+  assert.equal((await rows('select count(*)::int as n from public.products'))[0].n, 23);
+  assert.equal((await rows('select count(*)::int as n from public.products where coming_soon'))[0].n, 10);
+  assert.equal((await rows(`select name from public.categories where slug = 'shorts'`))[0].name, 'Pants');
+  assert.equal((await rows(`select count(*)::int as n from public.product_colours where product_id between 6 and 9 and front_image like '/catalog/hoodies/%/%-front.jpg' and back_image like '%-back.jpg'`))[0].n, 12);
+  assert.equal((await rows(`select count(*)::int as n from public.products where cardinality(lookbook_images) > 0`))[0].n, 0);
   const tees = await rows(`select product_id, weight, price_ils::float, price_usd::float, sale_price_ils::float, sale_price_usd::float, colours
     from public.product_weight_prices order by product_id, weight`);
   assert.equal(tees.length, 8);
@@ -59,13 +63,13 @@ test('the seed copies the live catalogue unchanged, without stock or invented pr
     assert.deepEqual(row.colours, row.weight === '220g' ? ['White', 'Black', 'Navy', 'Dark Gray', 'Beige', 'Light Blue', 'Camel'] : ['White', 'Black', 'Navy', 'Dark Gray', 'Beige']);
   }
   const unpriced = await rows(`select count(*)::int as n from public.products where price_ils is null and price_usd is null and fabric_weights = '{}'`);
-  assert.equal(unpriced[0].n, 9);
+  assert.equal(unpriced[0].n, 19);
   assert.equal((await rows('select count(*)::int as n from public.product_colours where product_id between 1 and 4'))[0].n, 28);
 });
 
 test('visitors can read the catalogue but cannot change anything', async () => {
   await as('visitor', async () => {
-    assert.equal((await rows('select count(*)::int as n from public.products'))[0].n, 13);
+    assert.equal((await rows('select count(*)::int as n from public.products'))[0].n, 23);
     await assert.rejects(db.query(`update public.product_weight_prices set price_ils = 1 where product_id = 1`), /permission denied/);
     await assert.rejects(db.query(`insert into public.products (slug, name, category_slug) values ('x', 'X', 'tees')`), /permission denied/);
     await assert.rejects(db.query(`delete from public.products where id = 1`), /permission denied/);
@@ -98,7 +102,10 @@ test('an admin can save, hide and create products in one transaction, with valid
     await assert.rejects(db.query(`select public.admin_save_product($1)`, [tee({ weight_prices: [{ weight: '220g', price_ils: 120, colours: ['Purple'] }] })]), /colour that the product does not have/);
     await assert.rejects(db.query(`select public.admin_save_product($1)`, [tee({ colours: [] })]), /at least one colour/);
     const created = (await rows(`select public.admin_save_product($1) as id`, [tee({ id: null, name: 'New Tee', active: false })]))[0].id;
-    assert.ok(created > 13);
+    assert.ok(created > 23);
+    // unlocking / locking a coming-soon product
+    await db.query(`select public.admin_save_product($1)`, [tee({ id: created, name: 'New Tee', active: false, coming_soon: true })]);
+    assert.equal((await rows('select coming_soon from public.products where id = $1', [created]))[0].coming_soon, true);
     assert.equal((await rows('select slug from public.products where id = $1', [created]))[0].slug, 'new-tee');
     await db.query(`insert into storage.objects (bucket_id, name) values ('product-images', 'tees/new.jpg')`);
     await assert.rejects(db.query(`insert into public.catalog_admins (user_id) values ('${CUSTOMER}')`), /permission denied/);
