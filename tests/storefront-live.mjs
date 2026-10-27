@@ -46,7 +46,7 @@ const memberTags = {}; // email -> Set of tag ids
 const tagsOf = email => (memberTags[email] ??= new Set());
 const emailOfUid = uid => uid.replace(/^uid:/, '');
 const uploads = [];
-let automationsDb = [{ id: 1, name: 'We miss you', trigger: 'no_sign_in', days: 30, channel: 'email', subject: '{first_name}, it\'s been a while', body: 'Hi {first_name}', coupon_code: '', active: false }];
+let automationsDb = [{ id: 1, name: 'We miss you', trigger: 'no_sign_in', days: 30, channel: 'email', subject: '{first_name}, it\'s been a while', body: 'Hi {first_name}', coupon_code: '', button_label: 'See what\'s new', marketing: true, active: false }];
 let nextAutomationId = 2;
 const tokenFor = email => 'token:' + email;
 const json = (body, status = 200) => new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -142,7 +142,7 @@ globalThis.fetch = async (url, init = {}) => {
     if (init.method === 'PATCH') { automationsDb = automationsDb.map(row => row.id === id ? { ...row, ...body } : row); return json(automationsDb.filter(row => row.id === id)); }
     if (init.method === 'DELETE') { automationsDb = automationsDb.filter(row => row.id !== id); return json([{ id }]); }
   }
-  if (path === '/rest/v1/rpc/admin_automation_reach') return isAdmin ? json(body.rule === 'no_sign_in' ? 3 : null) : json({ code: '42501', message: 'not authorised' }, 403);
+  if (path === '/rest/v1/rpc/admin_automation_reach') return isAdmin ? json(body.rule === 'no_sign_in' && body.only_opted_in === true ? 3 : null) : json({ code: '42501', message: 'not authorised' }, 403);
   if (path === '/rest/v1/rpc/admin_find_members') {
     if (!isAdmin) return json({ code: '42501', message: 'not authorised' }, 403);
     return json(Object.keys(users).filter(who => who.includes(body.search)).map(who => ({ id: 'uid:' + who, email: who, first_name: profiles[who]?.first_name ?? '', last_name: profiles[who]?.last_name ?? '', username: '', avatar_url: profiles[who]?.avatar_url ?? '', tag_ids: [...tagsOf(who)] })));
@@ -293,7 +293,7 @@ await set(label('Date of birth'), '1995-04-02');
 await submit(document.querySelector('.profile-form'));
 assert.match(document.querySelector('.save-banner.save-ok').textContent, /Your changes have been saved/);
 assert.ok(scrolls.some(options => options?.top === 0), 'page scrolls to the top');
-assert.deepEqual(profiles['customer@example.com'], { first_name: 'Noa', last_name: 'Levi', username: '', birthday: '1995-04-02', country: 'Israel', avatar_url: '' });
+assert.deepEqual(profiles['customer@example.com'], { first_name: 'Noa', last_name: 'Levi', username: '', birthday: '1995-04-02', country: 'Israel', avatar_url: '', marketing_opt_in: false });
 await visit('account');
 assert.equal(label('First name').value, 'Noa', 'details are still there after a refresh');
 assert.match(document.querySelector('.account-clean-hero').textContent, /Welcome back.*Noa/s);
@@ -313,8 +313,11 @@ await click(btn('New to BH?'));
 await set(label('Username', modal()), 'shira'); await set(label('Email address', modal()), 'new@example.com');
 await set(label('Date of birth', modal()), '2000-01-15');
 await set(label('Password', modal()), 'a-good-password'); await set(label('Confirm password', modal()), 'a-good-password');
+assert.equal(label(' Send me BH updates', modal()).checked, false, 'updates are optional and never pre-ticked');
+await click(label(' Send me BH updates', modal()));
 await submit(modal().querySelector('form'));
 assert.deepEqual(backend.emails, ['new@example.com']);
+assert.equal(users['new@example.com'].data.wants_updates, 'yes', 'the choice also travels with the confirmation link');
 assert.match(modal().textContent, /VERIFY EMAIL.*new@example\.com/s);
 assert.equal(localStorage.getItem('bh-session-v1'), null, 'not signed in before the code');
 await set(label('Confirmation code', modal()), '000000');
@@ -324,7 +327,7 @@ await set(label('Confirmation code', modal()), '482915');
 await submit(modal().querySelector('form'));
 assert.equal(modal(), null);
 assert.match(accountMenuText(), /new@example\.com/);
-assert.deepEqual(profiles['new@example.com'], { first_name: '', last_name: '', username: 'shira', birthday: '2000-01-15', country: '', avatar_url: '' });
+assert.deepEqual(profiles['new@example.com'], { first_name: '', last_name: '', username: 'shira', birthday: '2000-01-15', country: '', avatar_url: '', marketing_opt_in: true });
 await click(btn('Sign out', document.querySelector('.account-dropdown')));
 assert.equal(backend.signupRedirects[0], 'http://localhost/', 'the confirmation link brings people back to the site');
 // An unconfirmed account cannot log in until the code is entered.
@@ -358,7 +361,7 @@ clearBrowser();
 await visit(undefined, '#access_token=token:dana@gmail.com&refresh_token=refresh:dana@gmail.com&expires_in=3600&provider_token=x&token_type=bearer');
 assert.match(document.querySelector('.link-notice.save-ok').textContent, /You're signed in/);
 assert.match(accountMenuText(), /Dana Cohen/);
-assert.deepEqual(profiles['dana@gmail.com'], { first_name: 'Dana', last_name: 'Cohen', username: '', birthday: null, country: '', avatar_url: '' });
+assert.deepEqual(profiles['dana@gmail.com'], { first_name: 'Dana', last_name: 'Cohen', username: '', birthday: null, country: '', avatar_url: '', marketing_opt_in: false });
 
 // 13. Impossible dates are explained in plain words and never sent to the database.
 const before13 = structuredClone(profiles['dana@gmail.com']);
@@ -389,6 +392,12 @@ assert.equal(document.querySelector('.account-clean-hero .avatar-orb').textConte
 await click(btn('Account settings', document.querySelector('.account-dashboard aside')));
 assert.equal(document.querySelector('.settings-list > article:first-child'), document.querySelector('.verify-item'), 'verification is the first setting');
 assert.equal(document.querySelector('.account-panel .admin-demo-note'), null);
+const updatesSwitch = () => document.querySelector('.settings-list [aria-label="BH updates by email"]');
+assert.equal(updatesSwitch().getAttribute('aria-checked'), 'false');
+await click(updatesSwitch()); await settle(80);
+assert.equal(profiles['dana@gmail.com'].marketing_opt_in, true); assert.equal(updatesSwitch().getAttribute('aria-checked'), 'true');
+await click(updatesSwitch()); await settle(80);
+assert.equal(profiles['dana@gmail.com'].marketing_opt_in, false, 'members can switch updates off any time');
 backend.smsOff = true;
 await set(document.querySelector('.verify-item input[type=tel]'), '050-123-4567');
 await submit(document.querySelector('.verify-item form'));
@@ -439,7 +448,13 @@ assert.ok(!tagsDb.some(tag => tag.name === 'Top Customer'), 'tag deleted');
 // 18. Owner area → Automations: see who matches, switch on, create with a live preview, delete.
 await click(btn('Automations'));
 assert.match(document.querySelector('.automation-note').textContent, /Nothing is sent yet/);
-assert.match(document.querySelector('.automation-list').textContent, /We miss you.*hasn't signed in for 30 days.*3 members match today/s);
+assert.match(document.querySelector('.automation-list').textContent, /We miss you.*hasn't signed in for 30 days.*Updates only.*3 members match today \(with updates on\)/s);
+// Edit opens right where the automation is, not at the top of the page.
+await click(btn('Edit', document.querySelector('.automation-list')));
+assert.ok(document.querySelector('.automation-list .automation-editor'), 'editor opens in place');
+assert.equal(document.querySelectorAll('.automation-editor').length, 1);
+assert.equal(label('Automation name').value, 'We miss you');
+await click(btn('Cancel', document.querySelector('.automation-editor')));
 await click(document.querySelector('.automation-list .switch'));
 assert.equal(automationsDb[0].active, true);
 await click(btn('Create automation'));
@@ -447,14 +462,19 @@ await set(label('Automation name'), 'Birthday gift'); await set(label('When'), '
 await set(label('Coupon code'), 'bday15'); await set(label('Email subject'), 'Happy birthday, {first_name}!');
 await act(() => { const area = document.querySelector('.automation-form textarea'); Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(area, 'Use {coupon} this week.'); area.dispatchEvent(new Event('input', { bubbles: true })); });
 assert.equal(label('Days'), undefined, 'birthday has no days field');
-assert.match(document.querySelector('.email-preview').textContent, /Happy birthday, Dana!.*Use bday15 this week/s);
+const email = document.querySelector('.email-preview iframe').getAttribute('srcdoc');
+assert.match(email, /<h1[^>]*>Happy birthday, Dana!<\/h1>/, 'centred title');
+assert.match(email, /Use BDAY15 this week/); assert.match(email, />BDAY15<\/div>/, 'code box');
+assert.match(email, />BH<\/div>.*Clothing/s, 'logo'); assert.match(email, /The BH team/, 'signature'); assert.match(email, /Unsubscribe/, 'marketing emails can be unsubscribed');
+await set(label('Button text'), 'Claim my gift');
+assert.match(document.querySelector('.email-preview iframe').getAttribute('srcdoc'), />Claim my gift<\/a>/);
 await submit(document.querySelector('.automation-editor'));
 assert.match(document.querySelector('.save-banner.save-ok').textContent, /"Birthday gift" has been saved/);
-assert.deepEqual({ ...automationsDb.at(-1), id: 0 }, { id: 0, name: 'Birthday gift', trigger: 'birthday', days: 0, channel: 'email', subject: 'Happy birthday, {first_name}!', body: 'Use {coupon} this week.', coupon_code: 'BDAY15', active: false });
+assert.deepEqual({ ...automationsDb.at(-1), id: 0 }, { id: 0, name: 'Birthday gift', trigger: 'birthday', days: 0, channel: 'email', subject: 'Happy birthday, {first_name}!', body: 'Use {coupon} this week.', coupon_code: 'BDAY15', button_label: 'Claim my gift', marketing: true, active: false });
 await click([...document.querySelectorAll('.automation-list article')].find(row => row.textContent.includes('Birthday gift')).querySelector('.danger'));
 assert.equal(automationsDb.length, 1);
-await assert.rejects(store.saveAutomation({ name: 'x', trigger: 'welcome', days: 0, channel: 'email', subject: 's', body: 'b', coupon_code: '', active: true }, 'token:dana@gmail.com'), /permission/);
+await assert.rejects(store.saveAutomation({ name: 'x', trigger: 'welcome', days: 0, channel: 'email', subject: 's', body: 'b', coupon_code: '', button_label: 'Go', marketing: false, active: true }, 'token:dana@gmail.com'), /permission/);
 
 await act(() => root.unmount());
 rmSync('.live-dom', { recursive: true, force: true });
-console.log('PASS: automations, profile pictures, phone verification with the Verified tag, owner-managed member tags, real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');
+console.log('PASS: BH updates choice, designed automation emails, automations, profile pictures, phone verification with the Verified tag, owner-managed member tags, real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');

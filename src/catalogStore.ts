@@ -233,7 +233,7 @@ export const rememberSocialChoice = (remember: boolean) => { try { sessionStorag
 
 // The confirmation link from the sign-up email, and Google/Facebook/Apple sign-in, return here with the session in the
 // address: #access_token=…&refresh_token=…&expires_in=…&type=signup (or #error=…&error_description=…).
-export type RedirectResult = { session: UserSession; kind: "signup" | "social"; fullName: string } | { error: string };
+export type RedirectResult = { session: UserSession; kind: "signup" | "social"; fullName: string; wantsUpdates: boolean } | { error: string };
 export async function sessionFromConfirmationLink(hash: string): Promise<RedirectResult | null> {
   const values = new URLSearchParams(hash.replace(/^#/, ""));
   if (values.get("error") || values.get("error_description")) {
@@ -243,12 +243,12 @@ export async function sessionFromConfirmationLink(hash: string): Promise<Redirec
   }
   const accessToken = values.get("access_token"); const refreshToken = values.get("refresh_token");
   if (!accessToken || !refreshToken) return null;
-  const user = await request<{ id: string; email?: string; user_metadata?: { full_name?: string; name?: string } }>("/auth/v1/user", {}, accessToken);
+  const user = await request<{ id: string; email?: string; user_metadata?: { full_name?: string; name?: string; wants_updates?: string } }>("/auth/v1/user", {}, accessToken);
   let remember = true;
   try { remember = sessionStorage.getItem(REMEMBER_KEY) !== "0"; sessionStorage.removeItem(REMEMBER_KEY); } catch { /* keep default */ }
   const kind = values.get("type") === "signup" ? "signup" : "social";
   const session = keep(toSession({ access_token: accessToken, refresh_token: refreshToken, expires_in: Number(values.get("expires_in")) || 3600, user }, kind === "signup" || remember))!;
-  return { session, kind, fullName: user.user_metadata?.full_name || user.user_metadata?.name || "" };
+  return { session, kind, fullName: user.user_metadata?.full_name || user.user_metadata?.name || "", wantsUpdates: user.user_metadata?.wants_updates === "yes" };
 }
 
 export const resendSignupCode = (email: string) =>
@@ -284,9 +284,9 @@ export const isCatalogAdmin = (session: UserSession) =>
 // ---------------------------------------------------------------------------------------------------------------
 // Customer profile (public.profiles): each user reads and saves only their own row.
 // ---------------------------------------------------------------------------------------------------------------
-export type Profile = { first_name: string; last_name: string; username: string; birthday: string | null; country: string; avatar_url: string };
-export const emptyProfile = (): Profile => ({ first_name: "", last_name: "", username: "", birthday: null, country: "", avatar_url: "" });
-const PROFILE_COLUMNS = "first_name,last_name,username,birthday,country,avatar_url";
+export type Profile = { first_name: string; last_name: string; username: string; birthday: string | null; country: string; avatar_url: string; marketing_opt_in: boolean };
+export const emptyProfile = (): Profile => ({ first_name: "", last_name: "", username: "", birthday: null, country: "", avatar_url: "", marketing_opt_in: false });
+const PROFILE_COLUMNS = "first_name,last_name,username,birthday,country,avatar_url,marketing_opt_in";
 
 export async function fetchProfile(session: UserSession): Promise<Profile | null> {
   const rows = await request<Profile[]>(`/rest/v1/profiles?id=eq.${encodeURIComponent(session.userId)}&select=${PROFILE_COLUMNS}`, {}, session.accessToken);
@@ -389,16 +389,16 @@ export async function confirmPhoneCode(session: UserSession, phone: string, code
 // ---------------------------------------------------------------------------------------------------------------
 export const automationTriggers = ["welcome", "no_sign_in", "no_order", "birthday", "cart_left"] as const;
 export type AutomationTrigger = (typeof automationTriggers)[number];
-export type Automation = { id: number; name: string; trigger: AutomationTrigger; days: number; channel: "email"; subject: string; body: string; coupon_code: string; active: boolean };
+export type Automation = { id: number; name: string; trigger: AutomationTrigger; days: number; channel: "email"; subject: string; body: string; coupon_code: string; button_label: string; marketing: boolean; active: boolean };
 export type AutomationDraft = Omit<Automation, "id"> & { id?: number };
-const AUTOMATION_COLUMNS = "id,name,trigger,days,channel,subject,body,coupon_code,active";
+const AUTOMATION_COLUMNS = "id,name,trigger,days,channel,subject,body,coupon_code,button_label,marketing,active";
 
 export const fetchAutomations = (token: string) =>
   request<Automation[]>(`/rest/v1/automations?select=${AUTOMATION_COLUMNS}&order=id`, {}, token).then(rows => rows ?? []);
 
 export async function saveAutomation(automation: AutomationDraft, token: string) {
   const { id, ...fields } = automation;
-  const body = JSON.stringify({ ...fields, name: fields.name.trim(), subject: fields.subject.trim(), coupon_code: fields.coupon_code.trim().toUpperCase() });
+  const body = JSON.stringify({ ...fields, name: fields.name.trim(), subject: fields.subject.trim(), coupon_code: fields.coupon_code.trim().toUpperCase(), button_label: fields.button_label.trim() });
   const rows = id
     ? await request<Automation[]>(`/rest/v1/automations?id=eq.${id}&select=${AUTOMATION_COLUMNS}`, { method: "PATCH", body, headers: { Prefer: "return=representation" } }, token)
     : await request<Automation[]>(`/rest/v1/automations?select=${AUTOMATION_COLUMNS}`, { method: "POST", body, headers: { Prefer: "return=representation" } }, token);
@@ -411,5 +411,6 @@ export async function deleteAutomation(id: number, token: string) {
   if (!rows?.length) throw new CatalogError("The automation was not deleted. You may not have permission.");
 }
 
-export const automationReach = (trigger: AutomationTrigger, days: number, token: string) =>
-  request<number | null>("/rest/v1/rpc/admin_automation_reach", { method: "POST", body: JSON.stringify({ rule: trigger, after_days: days }) }, token);
+// Marketing automations only count members who chose to get BH updates.
+export const automationReach = (trigger: AutomationTrigger, days: number, marketing: boolean, token: string) =>
+  request<number | null>("/rest/v1/rpc/admin_automation_reach", { method: "POST", body: JSON.stringify({ rule: trigger, after_days: days, only_opted_in: marketing }) }, token);
