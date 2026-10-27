@@ -48,6 +48,12 @@ const emailOfUid = uid => uid.replace(/^uid:/, '');
 const uploads = [];
 let automationsDb = [{ id: 1, name: 'We miss you', trigger: 'no_sign_in', days: 30, channel: 'email', subject: '{first_name}, it\'s been a while', body: 'Hi {first_name}', coupon_code: '', button_label: 'See what\'s new', marketing: true, active: false }];
 let nextAutomationId = 2;
+let ordersDb = []; let nextOrderId = 1;
+const orderRow = (input, id) => {
+  const subtotal = input.items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+  const email = (input.customer_email || '').trim().toLowerCase();
+  return { ...input, id, order_number: 'BH-' + String(id).padStart(5, '0'), customer_email: email, user_id: users[email] ? 'uid:' + email : null, subtotal: String(subtotal), discount: String(input.discount), shipping: String(input.shipping), total: String(subtotal - input.discount + input.shipping), source: 'manual', created_at: '2026-10-29T10:00:00Z', paid_at: null, shipped_at: null, items: input.items.map((item, index) => ({ ...item, unit_price: String(item.unit_price), sort_order: index })) };
+};
 const tokenFor = email => 'token:' + email;
 const json = (body, status = 200) => new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 const tokenAnswer = email => json({ access_token: tokenFor(email), refresh_token: 'refresh:' + email, expires_in: 3600, user: { id: 'uid:' + email, email } });
@@ -133,6 +139,17 @@ globalThis.fetch = async (url, init = {}) => {
     if (!email || !users[email]?.phoneConfirmed) return json(0);
     const before = tagsOf(email).size; tagsDb.filter(tag => tag.rule === 'phone_verified').forEach(tag => tagsOf(email).add(tag.id));
     return json(tagsOf(email).size - before);
+  }
+  if (path === '/rest/v1/rpc/admin_save_order') {
+    if (!isAdmin) return json({ code: '42501', message: 'Only an authorised BH admin can change orders.' }, 403);
+    const input = body.input; if (!input.items?.length) return json({ message: 'An order needs at least one item.' }, 400);
+    const id = input.id ?? nextOrderId++; ordersDb = [...ordersDb.filter(row => row.id !== id), orderRow(input, id)]; return json(id);
+  }
+  if (path.startsWith('/rest/v1/orders')) {
+    if (!email) return json({ message: 'permission denied for table orders' }, 401);
+    const mine = new URL(url).searchParams.get('user_id');
+    const visible = ordersDb.filter(row => isAdmin || row.user_id === 'uid:' + email).filter(row => !mine || row.user_id === mine.replace('eq.', ''));
+    return json(structuredClone([...visible].reverse()));
   }
   if (path.startsWith('/rest/v1/automations')) {
     if (!isAdmin) return (!init.method || init.method === 'GET') ? json([]) : json({ message: 'new row violates row-level security policy for table "automations"' }, 403);
@@ -475,6 +492,47 @@ await click([...document.querySelectorAll('.automation-list article')].find(row 
 assert.equal(automationsDb.length, 1);
 await assert.rejects(store.saveAutomation({ name: 'x', trigger: 'welcome', days: 0, channel: 'email', subject: 's', body: 'b', coupon_code: '', button_label: 'Go', marketing: false, active: true }, 'token:dana@gmail.com'), /permission/);
 
+// 19. Orders: the owner records a sale by hand; totals are worked out; the member sees it with its receipt.
+await click(btn('Orders & receipts'));
+assert.equal(document.querySelector('.admin-demo-note'), null, 'orders are real, not samples');
+assert.match(document.querySelector('.orders-admin').textContent, /No orders yet/);
+await click(btn('Record an order'));
+await set(label('Full name'), 'Dana Cohen'); await set(label('Email'), 'Dana@Gmail.com'); await set(label('City'), 'Tel Aviv');
+await set(label('Piece'), String(products.find(p => p.name === 'Oni Blade').id));
+await set(label('Colour'), 'Black'); await set(label('Fabric'), '260g'); await set(label('Size'), 'L'); await set(label('Qty'), '2');
+await click(btn('Add piece'));
+const pieceRow = document.querySelector('.order-form .order-items li');
+assert.match(pieceRow.textContent, /Oni Blade.*260 GSM.*×2/s);
+assert.equal(label('Price each', pieceRow).value, '139.99', 'store price (sale price) for 260 GSM in ILS');
+await set(label('Shipping'), '25'); await set(label('Discount'), '10');
+assert.match(document.querySelector('.order-money .grand').textContent, /294\.98/);
+await submit(document.querySelector('.order-form'));
+assert.match(document.querySelector('.save-banner.save-ok').textContent, /order has been recorded/);
+assert.equal(ordersDb.length, 1); assert.equal(ordersDb[0].user_id, 'uid:dana@gmail.com', 'linked to Dana\'s account by email');
+assert.match(document.querySelector('.order-detail').textContent, /BH-00001.*Paid · Bit.*Dana Cohen.*Total₪294\.98.*No receipt attached yet/s);
+// Attach the receipt from the receipts service and mark it shipped.
+await click(btn('Edit order'));
+await set(label('Order status'), 'shipped'); await set(label('Tracking number'), 'RR123456789IL');
+await set(label('Receipt number'), '0001'); await set(label('Receipt link'), 'https://receipts.example/0001.pdf');
+await submit(document.querySelector('.order-form'));
+assert.equal(ordersDb.length, 1, 'edited, not duplicated'); assert.equal(ordersDb[0].receipt_number, '0001');
+await click(btn('All orders'));
+assert.match(document.querySelector('.order-table').textContent, /BH-00001.*Dana Cohen.*Shipped.*Paid.*0001.*294\.98/s);
+await set(document.querySelector('.order-filters input'), 'nobody');
+assert.match(document.querySelector('.orders-admin').textContent, /No orders match/);
+await assert.rejects(store.saveOrder({ customer_name: 'x', customer_email: '', receipt_number: '', items: [{ product_name: 'x', quantity: 1, unit_price: 1 }] }, 'token:customer@example.com'), /permission/);
+// Dana sees the order in her account, with tracking and the receipt.
+clearBrowser();
+users['dana@gmail.com'].password = 'dana-pass';
+await visit('account');
+await signIn('dana@gmail.com', 'dana-pass');
+await click(btn('Orders & shipments', document.querySelector('.account-dashboard aside')));
+const myOrder = document.querySelector('.my-orders article');
+assert.match(myOrder.textContent, /ORDER BH-00001.*Shipped.*Oni Blade.*Black · L · 260 GSM · ×2/s);
+assert.equal(myOrder.querySelector('a[href="https://receipts.example/0001.pdf"]').textContent.trim(), 'Receipt 0001');
+assert.match(myOrder.textContent, /Tracking: RR123456789IL/);
+assert.equal(document.querySelector('.account-panel .admin-demo-note'), null, 'real orders, not an example');
+
 await act(() => root.unmount());
 rmSync('.live-dom', { recursive: true, force: true });
-console.log('PASS: BH updates choice, designed automation emails, automations, profile pictures, phone verification with the Verified tag, owner-managed member tags, real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');
+console.log('PASS: orders recorded by the owner and shown to members, BH updates choice, designed automation emails, automations, profile pictures, phone verification with the Verified tag, owner-managed member tags, real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');
