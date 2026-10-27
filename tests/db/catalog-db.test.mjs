@@ -13,7 +13,8 @@ const supabaseStandIns = `
   create schema auth;
   create table auth.users (id uuid primary key, email text, phone_confirmed_at timestamptz, last_sign_in_at timestamptz, created_at timestamptz not null default now());
   create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-  grant usage on schema auth to anon, authenticated; grant execute on function auth.uid() to anon, authenticated;
+  create function auth.role() returns text language sql stable as $$ select nullif(current_setting('request.jwt.claim.role', true), '') $$;
+  grant usage on schema auth to anon, authenticated; grant execute on function auth.uid(), auth.role() to anon, authenticated;
   create schema storage;
   create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
   create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets (id), name text);
@@ -36,8 +37,8 @@ await db.exec(`insert into public.catalog_admins (user_id, note) select id, 'own
 async function as(who, run) {
   const role = who === 'visitor' ? 'anon' : 'authenticated';
   const sub = who === 'admin' ? ADMIN : who === 'customer' ? CUSTOMER : '';
-  await db.exec(`set role ${role}; select set_config('request.jwt.claim.sub', '${sub}', false);`);
-  try { return await run(); } finally { await db.exec(`reset role; select set_config('request.jwt.claim.sub', '', false);`); }
+  await db.exec(`set role ${role}; select set_config('request.jwt.claim.sub', '${sub}', false); select set_config('request.jwt.claim.role', '${role}', false);`);
+  try { return await run(); } finally { await db.exec(`reset role; select set_config('request.jwt.claim.sub', '', false); select set_config('request.jwt.claim.role', '', false);`); }
 }
 const rows = async (sql, params) => (await db.query(sql, params)).rows;
 const teePrice = async () => (await rows(`select price_ils from public.product_weight_prices where product_id = 1 and weight = '220g'`))[0].price_ils;
@@ -255,13 +256,12 @@ test('BH updates: members choose; the database records when they said yes and th
 
 test('orders: admins record them (totals worked out by the database), members see only their own', async () => {
   const order = (extra = {}) => ({
-    customer_name: 'Noa Levi', customer_email: 'Customer@Example.com', currency: 'ILS', discount: 10, shipping: 25,
-    payment_method: 'bit', payment_status: 'paid', status: 'new',
+    customer_name: 'Noa Levi', customer_email: 'Customer@Example.com', currency: 'ILS', discount: 10, shipping: 25, status: 'new', is_test: true,
     items: [
       { product_id: 1, product_name: 'Fallen Sword', colour: 'Black', size: 'M', fabric_weight: '220g', quantity: 2, unit_price: 109.99 },
-      { product_id: 5, product_name: 'Loose Shorts', colour: 'Black', size: 'L', quantity: 1, unit_price: 80, subtotal: 1 },
+      { product_id: 5, product_name: 'Loose Shorts', colour: 'Black', size: 'L', quantity: 1, unit_price: 80 },
     ],
-    subtotal: 1, total: 1, // ignored: the database works these out
+    subtotal: 1, total: 1, payment_status: 'paid', receipt_number: 'FAKE', receipt_url: 'https://fake', // all ignored by the database
     ...extra,
   });
   await as('customer', async () => {
@@ -270,22 +270,27 @@ test('orders: admins record them (totals worked out by the database), members se
   });
   await as('visitor', async () => {
     await assert.rejects(db.query(`select * from public.orders`), /permission denied/);
+    await assert.rejects(db.query(`select public.admin_save_order($1)`, [order()]), /permission denied/);
   });
   let id;
   await as('admin', async () => {
     id = Number((await rows(`select public.admin_save_order($1) as id`, [order()]))[0].id);
-    const [saved] = await rows(`select order_number, user_id, customer_email, subtotal::float, total::float, paid_at, shipped_at, source from public.orders where id = $1`, [id]);
+    const [saved] = await rows(`select order_number, user_id, customer_email, subtotal::float, total::float, payment_status, paid_at, receipt_number, receipt_url, is_test, source from public.orders where id = $1`, [id]);
     assert.equal(saved.order_number, 'BH-' + String(id).padStart(5, '0'));
     assert.equal(saved.user_id, CUSTOMER, 'linked to the member with the same email');
     assert.equal(saved.customer_email, 'customer@example.com');
-    assert.deepEqual([saved.subtotal, saved.total], [299.98, 314.98]);
-    assert.ok(saved.paid_at); assert.equal(saved.shipped_at, null); assert.equal(saved.source, 'manual');
-    assert.equal((await rows(`select count(*)::int as n from public.order_items where order_id = $1`, [id]))[0].n, 2);
-    // Update: ship it, change the items, attach the receipt.
-    await db.query(`select public.admin_save_order($1)`, [order({ id, status: 'shipped', tracking_number: 'RR123IL', receipt_number: '1001', items: [{ product_name: 'Rose', quantity: 1, unit_price: 120 }] })]);
-    const [updated] = await rows(`select status, total::float, shipped_at, receipt_number from public.orders where id = $1`, [id]);
-    assert.equal(updated.status, 'shipped'); assert.equal(updated.total, 135); assert.ok(updated.shipped_at); assert.equal(updated.receipt_number, '1001');
-    assert.deepEqual((await rows(`select product_name from public.order_items where order_id = $1`, [id])).map(r => r.product_name), ['Rose']);
+    assert.deepEqual([saved.subtotal, saved.total], [299.98, 314.98], 'totals worked out from the items, not taken from the browser');
+    assert.deepEqual([saved.payment_status, saved.paid_at, saved.receipt_number, saved.receipt_url], ['unpaid', null, '', ''], 'stays unpaid, no receipt');
+    assert.equal(saved.is_test, true); assert.equal(saved.source, 'manual');
+    assert.deepEqual((await rows(`select product_name, colour, size, fabric_weight, quantity, unit_price::float from public.order_items where order_id = $1 order by sort_order`, [id])).map(Object.values),
+      [['Fallen Sword', 'Black', 'M', '220g', 2, 109.99], ['Loose Shorts', 'Black', 'L', '', 1, 80]], 'pieces and prices at the time of the order');
+    // Update: ship it and change the items.
+    await db.query(`select public.admin_save_order($1)`, [order({ id, status: 'shipped', tracking_number: 'RR123IL', items: [{ product_name: 'Rose', quantity: 1, unit_price: 120 }] })]);
+    const [updated] = await rows(`select status, total::float, shipped_at, payment_status from public.orders where id = $1`, [id]);
+    assert.equal(updated.status, 'shipped'); assert.equal(updated.total, 135); assert.ok(updated.shipped_at); assert.equal(updated.payment_status, 'unpaid');
+    // Even the owner cannot mark an order paid or attach a receipt from the website: that is for the payment provider.
+    await assert.rejects(db.query(`update public.orders set payment_status = 'paid' where id = $1`, [id]), /permission denied|payment provider/);
+    await assert.rejects(db.query(`select * from public.payment_events`).then(() => db.query(`insert into public.payment_events (provider, event_type) values ('x', 'payment_confirmed')`)), /permission denied/);
     await assert.rejects(db.query(`select public.admin_save_order($1)`, [order({ items: [] })]), /at least one item/);
     await assert.rejects(db.query(`select public.admin_save_order($1)`, [order({ discount: 1000 })]), /check constraint/);
     await assert.rejects(db.query(`select public.admin_save_order($1)`, [order({ status: 'lost' })]), /check constraint/);
@@ -295,6 +300,13 @@ test('orders: admins record them (totals worked out by the database), members se
   await as('customer', async () => {
     assert.deepEqual((await rows(`select customer_name from public.orders`)).map(r => r.customer_name), ['Noa Levi'], 'only their own order');
     assert.equal((await rows(`select count(*)::int as n from public.order_items`))[0].n, 1);
-    await assert.rejects(db.query(`update public.orders set total = 0`), /permission denied/, 'members cannot change orders');
+    await assert.rejects(db.query(`update public.orders set total = 0`), /permission denied/, 'members cannot change prices');
+    await assert.rejects(db.query(`update public.orders set payment_status = 'paid'`), /permission denied/, 'members cannot mark orders paid');
+    await assert.rejects(db.query(`update public.order_items set unit_price = 1`), /permission denied/);
+    assert.equal((await rows(`select count(*)::int as n from public.payment_events`))[0].n, 0, 'members see no payment records');
+    await assert.rejects(db.query(`insert into public.payment_events (provider, event_type) values ('x', 'payment_confirmed')`), /permission denied/);
   });
+  // The future server-side integration (service role, outside the browser) is the only way to record a payment.
+  await db.query(`update public.orders set payment_status = 'paid', payment_provider = 'provider', payment_reference = 'tx-1' where id = $1`, [id]);
+  assert.ok((await rows(`select paid_at from public.orders where id = $1`, [id]))[0].paid_at);
 });
