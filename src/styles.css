@@ -519,26 +519,29 @@ header { z-index: 40; }
 .icon.has-avatar { padding: 0; overflow: hidden; }
 .avatar-header { width: 34px; height: 34px; display: block; border-radius: 50%; box-shadow: 0 0 0 2px #fffaf4, 0 0 0 3px #d9bfa6; }
 .avatar-large { width: 92px; height: 92px; display: grid; place-items: center; border-radius: 28px; background: linear-gradient(145deg, #8175de, #b1a7ff); color: #fff; font-size: 24px; font-weight: 700; box-shadow: 0 12px 21px rgba(112, 96, 210, .2); }
-.avatar-picker { display: flex; gap: 22px; align-items: center; margin: 0 0 26px; padding: 20px; border: 1px solid #ead8c6; border-radius: 22px; background: #fffcf8; }
-.avatar-picker h3 { margin: 0 0 4px; font-size: 17px; }
-.avatar-picker p { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
-.avatar-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.avatar-actions label { position: relative; cursor: pointer; }
-.avatar-actions label.disabled { opacity: .6; pointer-events: none; }
-.avatar-actions input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.avatar-editor { position: relative; flex: none; align-self: flex-start; border-radius: 24px; outline: none; }
+.avatar-editor .avatar-orb { transition: filter .25s; }
+.avatar-tools { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 24px; background: rgba(40, 30, 24, .42); opacity: 0; transition: opacity .2s; }
+.avatar-editor:hover .avatar-tools, .avatar-editor:focus-within .avatar-tools, .avatar-editor.busy .avatar-tools { opacity: 1; }
+.avatar-tool { position: relative; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; background: #fffaf4; color: #5a4436; cursor: pointer; box-shadow: 0 4px 10px rgba(0, 0, 0, .18); transition: transform .2s; }
+.avatar-tool:hover { transform: scale(1.12); }
+.avatar-tool.remove { background: #c4412f; color: #fff; }
+.avatar-tool input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.avatar-editor.busy .avatar-tool { pointer-events: none; opacity: .6; }
+.avatar-editor.busy .avatar-orb { filter: grayscale(.6); }
 
 /* Member tags: the same look as the BH OWNER label, in the tag's own colour. */
 .member-tags { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
 .member-tag { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border: 1px solid color-mix(in srgb, var(--tag) 38%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--tag) 9%, #fffdf9); color: var(--tag); font-size: 10.5px; font-weight: 700; letter-spacing: .14em; line-height: 1; text-transform: uppercase; white-space: nowrap; }
 .member-tag svg { flex: none; }
 
-/* Account settings: verify with phone */
-.verify-card { display: flex; gap: 18px; align-items: flex-start; margin: 0 0 22px; padding: 22px; border: 1px solid #d9e6dc; border-radius: 22px; background: linear-gradient(130deg, #f1f8f2, #fffdf9 70%); }
-.verify-card h3 { margin: 4px 0; font-size: 20px; }
-.verify-card h3 span { color: #2f7d5b; }
-.verify-card p:not(.eyebrow) { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
+/* Account settings: verify with phone (first item of the settings list) */
+.settings-list .verify-item>div { min-width: 0; }
+.verified-pill { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; padding: 3px 8px; border-radius: 999px; background: #e3f1e7; color: #2f7d5b; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; vertical-align: middle; }
+.verify-item form p { margin-bottom: 10px !important; }
 .verify-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.verify-row input { flex: 1 1 200px; min-width: 0; padding: 12px 16px; border: 1px solid #d6dccf; border-radius: 999px; background: #fff; font: inherit; }
+.verify-row input { flex: 1 1 200px; min-width: 0; padding: 11px 16px; border: 1px solid #e2cfbd; border-radius: 999px; background: #fff; font: inherit; font-size: 13px; }
+.soon-pill { margin-left: 6px; padding: 3px 8px; border-radius: 999px; background: #f6eedf; color: #9a7a52; font-size: 9px; font-style: normal; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; vertical-align: middle; }
 
 /* Owner area: member tags */
 .tag-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -565,11 +568,45 @@ header { z-index: 40; }
   .tag-form { grid-template-columns: 1fr; }
   .tag-table article, .member-list article { grid-template-columns: 1fr; }
   .member-tag-toggles { justify-content: flex-start; }
-  .avatar-picker, .verify-card { flex-direction: column; align-items: flex-start; }
 }
 
 /* BH Club: Gift Cards tab */
-.gift-amounts { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 22px; }
-.gift-amounts span { padding: 8px 14px; border: 1px solid #e0c9b3; border-radius: 999px; background: rgba(255, 255, 255, .7); color: #5a4436; font-size: 12px; font-weight: 700; }
+.gift-examples { margin: 2px 0 24px; color: #7a6352; font-size: 13px; line-height: 1.7; }
+.gift-examples svg { margin-right: 6px; color: #b07a4c; vertical-align: -2px; }
+.gift-examples b { color: #4a3528; }
+.gift-examples i { display: inline-block; width: 4px; height: 4px; margin: 0 10px; border-radius: 50%; background: #c9a98c; vertical-align: middle; }
 .gift-glass { transform: rotate(-3deg); }
 .gift-feature h2 { margin-bottom: 18px; }
+
+/* Owner area: automations */
+.automation-note { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 18px; padding: 13px 16px; border: 1px solid #e6d6c2; border-radius: 14px; background: #fbf5ec; color: #6a5444; font-size: 13px; line-height: 1.55; }
+.automation-note svg { flex: none; margin-top: 2px; color: #a8743f; }
+.automation-editor { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(260px, 1fr); gap: 18px; align-items: start; margin-bottom: 24px; }
+.automation-form { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
+.automation-form .wide { grid-column: 1 / -1; }
+.automation-form textarea { width: 100%; min-height: 170px; padding: 14px 16px; border: 1px solid #e2cfbd; border-radius: 16px; background: #fffdf9; color: var(--ink, #2f2620); font: inherit; font-size: 13px; font-weight: 400; letter-spacing: normal; text-transform: none; line-height: 1.6; resize: vertical; outline: none; }
+.automation-form textarea:focus { border-color: #b98a62; }
+.placeholder-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: var(--muted); font-size: 12px; }
+.placeholder-row .ghost-pill { padding: 7px 11px; font-size: 11px; text-transform: none; letter-spacing: 0; }
+.automation-warning { margin: 0; padding: 10px 14px; border-radius: 12px; background: #fdf3e2; color: #8a6234; font-size: 12px; }
+.automation-switch { display: flex !important; flex-direction: row !important; align-items: center; gap: 10px; font-size: 13px; }
+.automation-switch input { width: 18px !important; height: 18px; accent-color: #8a5a3c; }
+.email-preview { position: sticky; top: 90px; padding: 16px; border: 1px solid #e6d6c2; border-radius: 20px; background: #f6efe6; }
+.email-preview>div { padding: 20px; border-radius: 14px; background: #fff; box-shadow: 0 10px 24px rgba(78, 49, 29, .08); }
+.email-preview small { color: var(--muted); font-size: 11px; }
+.email-preview h4 { margin: 8px 0 12px; font-size: 17px; }
+.email-preview p:not(.eyebrow) { margin: 0 0 16px; white-space: pre-wrap; color: #4a3a2f; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.email-preview span { display: block; padding-top: 12px; border-top: 1px solid #eee3d6; color: #8a5a3c; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.automation-list { display: grid; gap: 10px; }
+.automation-list article { display: grid; grid-template-columns: auto 1fr auto auto auto; gap: 14px; align-items: center; padding: 15px 16px; border: 1px solid #eadccd; border-radius: 18px; background: #fffdf9; opacity: .78; transition: opacity .2s; }
+.automation-list article.on { opacity: 1; border-color: #d8bea4; }
+.automation-list h3 { margin: 0 0 3px; font-size: 15px; }
+.automation-list p { margin: 0; color: var(--muted); font-size: 12px; }
+.automation-list small { display: block; margin-top: 3px; color: #a8743f; font-size: 11px; font-weight: 600; }
+@media (max-width: 900px) {
+  .automation-editor { grid-template-columns: 1fr; }
+  .email-preview { position: static; }
+  .automation-list article { grid-template-columns: auto 1fr auto; }
+  .automation-list article .ghost-pill { grid-column: span 1; }
+}
+@media (max-width: 600px) { .automation-form { grid-template-columns: 1fr; } }

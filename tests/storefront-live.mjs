@@ -46,6 +46,8 @@ const memberTags = {}; // email -> Set of tag ids
 const tagsOf = email => (memberTags[email] ??= new Set());
 const emailOfUid = uid => uid.replace(/^uid:/, '');
 const uploads = [];
+let automationsDb = [{ id: 1, name: 'We miss you', trigger: 'no_sign_in', days: 30, channel: 'email', subject: '{first_name}, it\'s been a while', body: 'Hi {first_name}', coupon_code: '', active: false }];
+let nextAutomationId = 2;
 const tokenFor = email => 'token:' + email;
 const json = (body, status = 200) => new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 const tokenAnswer = email => json({ access_token: tokenFor(email), refresh_token: 'refresh:' + email, expires_in: 3600, user: { id: 'uid:' + email, email } });
@@ -132,6 +134,15 @@ globalThis.fetch = async (url, init = {}) => {
     const before = tagsOf(email).size; tagsDb.filter(tag => tag.rule === 'phone_verified').forEach(tag => tagsOf(email).add(tag.id));
     return json(tagsOf(email).size - before);
   }
+  if (path.startsWith('/rest/v1/automations')) {
+    if (!isAdmin) return (!init.method || init.method === 'GET') ? json([]) : json({ message: 'new row violates row-level security policy for table "automations"' }, 403);
+    const id = Number(new URL(url).searchParams.get('id')?.replace('eq.', ''));
+    if (!init.method || init.method === 'GET') return json(structuredClone(automationsDb));
+    if (init.method === 'POST') { const row = { ...body, id: nextAutomationId++ }; automationsDb.push(row); return json([row], 201); }
+    if (init.method === 'PATCH') { automationsDb = automationsDb.map(row => row.id === id ? { ...row, ...body } : row); return json(automationsDb.filter(row => row.id === id)); }
+    if (init.method === 'DELETE') { automationsDb = automationsDb.filter(row => row.id !== id); return json([{ id }]); }
+  }
+  if (path === '/rest/v1/rpc/admin_automation_reach') return isAdmin ? json(body.rule === 'no_sign_in' ? 3 : null) : json({ code: '42501', message: 'not authorised' }, 403);
   if (path === '/rest/v1/rpc/admin_find_members') {
     if (!isAdmin) return json({ code: '42501', message: 'not authorised' }, 403);
     return json(Object.keys(users).filter(who => who.includes(body.search)).map(who => ({ id: 'uid:' + who, email: who, first_name: profiles[who]?.first_name ?? '', last_name: profiles[who]?.last_name ?? '', username: '', avatar_url: profiles[who]?.avatar_url ?? '', tag_ids: [...tagsOf(who)] })));
@@ -359,7 +370,7 @@ assert.deepEqual(profiles['dana@gmail.com'], before13);
 
 // 14. Profile picture: uploaded into the member's own folder and shown on the account and in the header.
 const picture = new File([new Uint8Array([255, 216, 255, 224])], 'me.jpg', { type: 'image/jpeg' });
-const pictureInput = document.querySelector('.avatar-picker input[type=file]');
+const pictureInput = document.querySelector('.account-clean-hero .avatar-editor input[type=file]');
 Object.defineProperty(pictureInput, 'files', { value: [picture], configurable: true });
 await act(() => pictureInput.dispatchEvent(new Event('change', { bubbles: true }))); await settle(120);
 assert.match(document.querySelector('.save-banner.save-ok').textContent, /profile picture has been saved/);
@@ -367,27 +378,31 @@ assert.equal(uploads.length, 1); assert.match(uploads[0], /^uid:dana@gmail\.com\
 assert.equal(profiles['dana@gmail.com'].avatar_url, 'https://bh.example.supabase.co/storage/v1/object/public/avatars/' + uploads[0]);
 assert.equal(document.querySelector('.account-clean-hero .avatar-orb img').getAttribute('src'), profiles['dana@gmail.com'].avatar_url);
 assert.ok(document.querySelector('header .account-menu .avatar-header img'), 'picture in the header');
-await click(btn('Remove', document.querySelector('.avatar-picker')));
+assert.equal(document.querySelector('.avatar-picker'), null, 'no separate picture card: the picture itself is the editor');
+await click(document.querySelector('.account-clean-hero .avatar-tool.remove'));
 assert.equal(profiles['dana@gmail.com'].avatar_url, '');
 assert.equal(document.querySelector('.account-clean-hero .avatar-orb img'), null);
+assert.equal(document.querySelector('.account-clean-hero .avatar-tool.remove'), null, 'nothing to remove when showing initials');
+assert.equal(document.querySelector('.account-clean-hero .avatar-orb').textContent, 'DC');
 
 // 15. Phone verification gives the Verified tag (and a wrong code or a missing SMS service is explained plainly).
 await click(btn('Account settings', document.querySelector('.account-dashboard aside')));
-assert.match(document.querySelector('.verify-card').textContent, /Verify with your phone/);
+assert.equal(document.querySelector('.settings-list > article:first-child'), document.querySelector('.verify-item'), 'verification is the first setting');
+assert.equal(document.querySelector('.account-panel .admin-demo-note'), null);
 backend.smsOff = true;
-await set(document.querySelector('.verify-card input[type=tel]'), '050-123-4567');
-await submit(document.querySelector('.verify-card form'));
+await set(document.querySelector('.verify-item input[type=tel]'), '050-123-4567');
+await submit(document.querySelector('.verify-item form'));
 assert.match(document.querySelector('.save-banner.save-fail').textContent, /Phone verification isn't switched on yet/);
 backend.smsOff = false;
-await submit(document.querySelector('.verify-card form'));
+await submit(document.querySelector('.verify-item form'));
 assert.equal(users['dana@gmail.com'].pendingPhone, '+972501234567', 'Israeli number sent in international format');
-await set(document.querySelector('.verify-card input[aria-label="SMS code"]'), '111111');
-await submit(document.querySelector('.verify-card form'));
+await set(document.querySelector('.verify-item input[aria-label="SMS code"]'), '111111');
+await submit(document.querySelector('.verify-item form'));
 assert.match(document.querySelector('.save-banner.save-fail').textContent, /code is wrong or has expired/);
-await set(document.querySelector('.verify-card input[aria-label="SMS code"]'), '654321');
-await submit(document.querySelector('.verify-card form'));
+await set(document.querySelector('.verify-item input[aria-label="SMS code"]'), '654321');
+await submit(document.querySelector('.verify-item form'));
 assert.match(document.querySelector('.save-banner.save-ok').textContent, /phone is verified/);
-assert.match(document.querySelector('.verify-card').textContent, /Your account is verified.*\+972501234567/s);
+assert.match(document.querySelector('.verify-item').textContent, /Verified.*\+972501234567 is confirmed/s);
 assert.match(document.querySelector('.account-clean-hero .member-tags').textContent, /Verified/);
 await visit('account');
 assert.deepEqual([...document.querySelectorAll('.account-clean-hero .member-tag')].map(tag => tag.textContent), ['Verified'], 'tag stays after a refresh');
@@ -421,6 +436,25 @@ window.confirm = () => true;
 await click([...document.querySelectorAll('.tag-table article')].find(row => row.textContent.includes('Top Customer')).querySelectorAll('button')[1]);
 assert.ok(!tagsDb.some(tag => tag.name === 'Top Customer'), 'tag deleted');
 
+// 18. Owner area → Automations: see who matches, switch on, create with a live preview, delete.
+await click(btn('Automations'));
+assert.match(document.querySelector('.automation-note').textContent, /Nothing is sent yet/);
+assert.match(document.querySelector('.automation-list').textContent, /We miss you.*hasn't signed in for 30 days.*3 members match today/s);
+await click(document.querySelector('.automation-list .switch'));
+assert.equal(automationsDb[0].active, true);
+await click(btn('Create automation'));
+await set(label('Automation name'), 'Birthday gift'); await set(label('When'), 'birthday');
+await set(label('Coupon code'), 'bday15'); await set(label('Email subject'), 'Happy birthday, {first_name}!');
+await act(() => { const area = document.querySelector('.automation-form textarea'); Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(area, 'Use {coupon} this week.'); area.dispatchEvent(new Event('input', { bubbles: true })); });
+assert.equal(label('Days'), undefined, 'birthday has no days field');
+assert.match(document.querySelector('.email-preview').textContent, /Happy birthday, Dana!.*Use bday15 this week/s);
+await submit(document.querySelector('.automation-editor'));
+assert.match(document.querySelector('.save-banner.save-ok').textContent, /"Birthday gift" has been saved/);
+assert.deepEqual({ ...automationsDb.at(-1), id: 0 }, { id: 0, name: 'Birthday gift', trigger: 'birthday', days: 0, channel: 'email', subject: 'Happy birthday, {first_name}!', body: 'Use {coupon} this week.', coupon_code: 'BDAY15', active: false });
+await click([...document.querySelectorAll('.automation-list article')].find(row => row.textContent.includes('Birthday gift')).querySelector('.danger'));
+assert.equal(automationsDb.length, 1);
+await assert.rejects(store.saveAutomation({ name: 'x', trigger: 'welcome', days: 0, channel: 'email', subject: 's', body: 'b', coupon_code: '', active: true }, 'token:dana@gmail.com'), /permission/);
+
 await act(() => root.unmount());
 rmSync('.live-dom', { recursive: true, force: true });
-console.log('PASS: profile pictures, phone verification with the Verified tag, owner-managed member tags, real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');
+console.log('PASS: automations, profile pictures, phone verification with the Verified tag, owner-managed member tags, real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');

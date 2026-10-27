@@ -11,7 +11,7 @@ const CUSTOMER = '00000000-0000-4000-8000-000000000002';
 const supabaseStandIns = `
   create role anon nologin; create role authenticated nologin;
   create schema auth;
-  create table auth.users (id uuid primary key, email text, phone_confirmed_at timestamptz, created_at timestamptz not null default now());
+  create table auth.users (id uuid primary key, email text, phone_confirmed_at timestamptz, last_sign_in_at timestamptz, created_at timestamptz not null default now());
   create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   grant usage on schema auth to anon, authenticated; grant execute on function auth.uid() to anon, authenticated;
   create schema storage;
@@ -198,5 +198,32 @@ test('profile pictures: members upload only into their own folder', async () => 
   });
   await as('visitor', async () => {
     await assert.rejects(db.query(`insert into storage.objects (bucket_id, name) values ('avatars', 'x/me.jpg')`), /row-level security/);
+  });
+});
+
+test('automations: only admins can see and change them; reach counts members who match today', async () => {
+  for (const who of ['visitor', 'customer']) {
+    await as(who, async () => {
+      if (who === 'visitor') await assert.rejects(db.query('select * from public.automations'), /permission denied/);
+      else assert.equal((await rows('select count(*)::int as n from public.automations'))[0].n, 0, 'customers see no automations');
+      await assert.rejects(db.query(`select public.admin_automation_reach('no_sign_in', 30)`), /permission denied|not authorised/);
+    });
+  }
+  await as('customer', async () => {
+    await assert.rejects(db.query(`insert into public.automations (name, trigger, subject, body) values ('x', 'welcome', 's', 'b')`), /row-level security/);
+  });
+  await db.query(`update auth.users set last_sign_in_at = now() - interval '40 days' where id = '${CUSTOMER}'`);
+  await db.query(`update auth.users set last_sign_in_at = now() - interval '2 days' where id = '${ADMIN}'`);
+  await as('admin', async () => {
+    assert.deepEqual((await rows('select trigger from public.automations order by id')).map(r => r.trigger), ['welcome', 'no_sign_in', 'no_order', 'birthday', 'cart_left']);
+    assert.equal((await rows('select count(*)::int as n from public.automations where active'))[0].n, 0, 'nothing is switched on by default');
+    assert.equal((await rows(`select public.admin_automation_reach('no_sign_in', 30) as n`))[0].n, 1);
+    assert.equal((await rows(`select public.admin_automation_reach('no_sign_in', 1) as n`))[0].n, 2);
+    assert.equal((await rows(`select public.admin_automation_reach('no_order', 30) as n`))[0].n, null);
+    const id = (await rows(`insert into public.automations (name, trigger, days, subject, body) values ('Test', 'no_sign_in', 14, 'Hi {first_name}', 'Body') returning id`))[0].id;
+    await db.query(`update public.automations set active = true, days = 21 where id = $1`, [id]);
+    await assert.rejects(db.query(`update public.automations set days = 999 where id = $1`, [id]), /check constraint/);
+    await assert.rejects(db.query(`update public.automations set trigger = 'spam_everyone' where id = $1`, [id]), /check constraint/);
+    await db.query(`delete from public.automations where id = $1`, [id]);
   });
 });

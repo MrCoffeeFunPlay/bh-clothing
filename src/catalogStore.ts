@@ -116,6 +116,9 @@ const constraintMessages: [RegExp, string][] = [
   [/products_slug_key|duplicate key/, "Something with this name already exists. Choose a different name."],
   [/products_check|sale_value_check/, "Check the sale: the discount must be more than 0 (up to 100%) and the end must be after the start."],
   [/hex_check/, "Choose a valid colour swatch."],
+  [/automations_days_check/, "Days must be between 0 and 365."],
+  [/automations_(name|subject|body)_check/, "Fill in the name, subject and message (and keep them within the length limit)."],
+  [/tags_(name|description)_check/, "Give the tag a name of up to 30 characters (description up to 160)."],
 ];
 const technical = /violates|constraint|relation "|column "|syntax|invalid input|null value|out of range|does not exist|operator|malformed/i;
 function friendlyDataError(text: string) {
@@ -380,3 +383,33 @@ export async function confirmPhoneCode(session: UserSession, phone: string, code
   await claimPhoneTags(next);
   return next;
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Automations (Owner area): a rule plus the message a matching member gets. Admins only.
+// ---------------------------------------------------------------------------------------------------------------
+export const automationTriggers = ["welcome", "no_sign_in", "no_order", "birthday", "cart_left"] as const;
+export type AutomationTrigger = (typeof automationTriggers)[number];
+export type Automation = { id: number; name: string; trigger: AutomationTrigger; days: number; channel: "email"; subject: string; body: string; coupon_code: string; active: boolean };
+export type AutomationDraft = Omit<Automation, "id"> & { id?: number };
+const AUTOMATION_COLUMNS = "id,name,trigger,days,channel,subject,body,coupon_code,active";
+
+export const fetchAutomations = (token: string) =>
+  request<Automation[]>(`/rest/v1/automations?select=${AUTOMATION_COLUMNS}&order=id`, {}, token).then(rows => rows ?? []);
+
+export async function saveAutomation(automation: AutomationDraft, token: string) {
+  const { id, ...fields } = automation;
+  const body = JSON.stringify({ ...fields, name: fields.name.trim(), subject: fields.subject.trim(), coupon_code: fields.coupon_code.trim().toUpperCase() });
+  const rows = id
+    ? await request<Automation[]>(`/rest/v1/automations?id=eq.${id}&select=${AUTOMATION_COLUMNS}`, { method: "PATCH", body, headers: { Prefer: "return=representation" } }, token)
+    : await request<Automation[]>(`/rest/v1/automations?select=${AUTOMATION_COLUMNS}`, { method: "POST", body, headers: { Prefer: "return=representation" } }, token);
+  if (!rows?.[0]) throw new CatalogError("The automation was not saved. You may not have permission.");
+  return rows[0];
+}
+
+export async function deleteAutomation(id: number, token: string) {
+  const rows = await request<{ id: number }[]>(`/rest/v1/automations?id=eq.${id}&select=id`, { method: "DELETE", headers: { Prefer: "return=representation" } }, token);
+  if (!rows?.length) throw new CatalogError("The automation was not deleted. You may not have permission.");
+}
+
+export const automationReach = (trigger: AutomationTrigger, days: number, token: string) =>
+  request<number | null>("/rest/v1/rpc/admin_automation_reach", { method: "POST", body: JSON.stringify({ rule: trigger, after_days: days }) }, token);
