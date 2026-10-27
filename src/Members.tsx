@@ -1,6 +1,6 @@
 // Member identity: profile pictures, tags (badges under a member's name), phone verification, and the owner's tag tools.
 import { type ChangeEvent, type FormEvent, useEffect, useState } from "react";
-import { BadgeCheck, Camera, Check, Crown, Flame, Gem, Heart, Pencil, Plus, Search, ShieldCheck, Smartphone, Sparkles, Star, Tags, Trash2, Trophy, X, Zap } from "lucide-react";
+import { BadgeCheck, Check, Crown, Flame, Gem, Heart, Pencil, Plus, Search, ShieldCheck, Smartphone, Sparkles, Star, Tags, Trash2, Trophy, X, Zap } from "lucide-react";
 import {
   confirmPhoneCode, deleteTag, fetchMyTags, fetchProfile, fetchTags, findMembers, normalisePhone, phoneStatus, saveProfile, saveTag, sendPhoneCode,
   setMemberTag, tagIcons, uploadAvatar, type Member, type Profile, type Tag, type TagDraft, type TagIcon, type UserSession,
@@ -47,7 +47,8 @@ async function squarePicture(file: File, size = 400): Promise<Blob> {
   }
 }
 
-export function AvatarPicker({ name, profile, freshSession, onSaved, onMessage }: { name: string; profile: Profile; freshSession: Fresh; onSaved: (profile: Profile) => void; onMessage: (banner: Banner) => void }) {
+// The profile picture itself is the editor: hovering it shows a pencil (choose a picture) and a red bin (back to initials).
+export function AvatarEditor({ name, profile, freshSession, onSaved, onMessage }: { name: string; profile: Profile; freshSession: Fresh; onSaved: (profile: Profile) => void; onMessage: (banner: Banner) => void }) {
   const [busy, setBusy] = useState(false);
   const store = async (makeUrl: (session: UserSession) => Promise<string>, done: string) => {
     setBusy(true);
@@ -64,7 +65,13 @@ export function AvatarPicker({ name, profile, freshSession, onSaved, onMessage }
     const file = event.target.files?.[0]; event.target.value = "";
     if (file) void store(async (active) => uploadAvatar(active, await squarePicture(file)), "Your profile picture has been saved.");
   };
-  return <div className="avatar-picker"><Avatar url={profile.avatar_url} name={name} className="avatar-large"/><div><h3>Profile picture</h3><p>Shown on your account and next to your reviews. JPG, PNG or WebP.</p><div className="avatar-actions"><label className={busy ? "glow-button disabled" : "glow-button"}><Camera size={16}/> {busy ? "Saving…" : profile.avatar_url ? "Change picture" : "Upload picture"}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={choose} aria-label="Choose a profile picture"/></label>{profile.avatar_url && <button type="button" className="ghost-pill" disabled={busy} onClick={() => void store(async () => "", "Your profile picture was removed.")}><Trash2 size={15}/> Remove</button>}</div></div></div>;
+  return <div className={busy ? "avatar-editor busy" : "avatar-editor"} tabIndex={0} aria-label="Profile picture">
+    <Avatar url={profile.avatar_url} name={name} className="avatar-orb"/>
+    <div className="avatar-tools">
+      <label className="avatar-tool" title={profile.avatar_url ? "Change picture" : "Add a picture"}><Pencil size={15}/><input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={choose} aria-label={profile.avatar_url ? "Change profile picture" : "Add a profile picture"}/></label>
+      {profile.avatar_url && <button type="button" className="avatar-tool remove" title="Remove picture" aria-label="Remove profile picture" disabled={busy} onClick={() => void store(async () => "", "Your profile picture was removed.")}><Trash2 size={15}/></button>}
+    </div>
+  </div>;
 }
 
 export function PhoneVerify({ freshSession, onVerified, onMessage }: { freshSession: Fresh; onVerified: (tags: Tag[]) => void; onMessage: (banner: Banner) => void }) {
@@ -95,10 +102,12 @@ export function PhoneVerify({ freshSession, onVerified, onMessage }: { freshSess
       onMessage({ ok: true, text: "Your phone is verified. Your Verified tag is on your profile." });
     });
   };
-  return <article className="verify-card"><span className="icon-orb"><Smartphone size={21}/></span><div><p className="eyebrow"><ShieldCheck size={14}/> VERIFY YOUR ACCOUNT</p>
-    {status?.verified ? <><h3>Your account is verified<span>.</span></h3><p>Phone {status.phone.startsWith("+") ? status.phone : `+${status.phone}`} is confirmed.</p></>
-      : sentTo ? <form onSubmit={confirm}><h3>Enter the code<span>.</span></h3><p>We sent a 6-digit code to {sentTo}.</p><div className="verify-row"><input inputMode="numeric" autoComplete="one-time-code" required maxLength={10} value={code} onChange={(event) => setCode(event.target.value)} aria-label="SMS code" placeholder="123456"/><button className="glow-button" disabled={busy}>{busy ? "Checking…" : "Verify"} <Check size={16}/></button><button type="button" className="ghost-pill" disabled={busy} onClick={() => setSentTo("")}>Change number</button></div></form>
-      : <form onSubmit={send}><h3>Verify with your phone<span>.</span></h3><p>Confirm your phone number with an SMS code and get the Verified tag under your name.</p><div className="verify-row"><input type="tel" autoComplete="tel" required value={phone} onChange={(event) => setPhone(event.target.value)} aria-label="Phone number" placeholder="+972 50 123 4567"/><button className="glow-button" disabled={busy || status === null}>{busy ? "Sending…" : "Send code"}</button></div></form>}
+  // First item of the Account settings list, in the same style as the other settings.
+  return <article className="verify-item"><Smartphone size={21}/><div>
+    <h3>Verify your account {status?.verified && <span className="verified-pill"><ShieldCheck size={12}/> Verified</span>}</h3>
+    {status?.verified ? <p>Phone {status.phone.startsWith("+") ? status.phone : `+${status.phone}`} is confirmed. The Verified tag is on your profile.</p>
+      : sentTo ? <form onSubmit={confirm}><p>Enter the 6-digit code we sent to {sentTo}.</p><div className="verify-row"><input inputMode="numeric" autoComplete="one-time-code" required maxLength={10} value={code} onChange={(event) => setCode(event.target.value)} aria-label="SMS code" placeholder="123456"/><button className="glow-button" disabled={busy}>{busy ? "Checking…" : "Verify"} <Check size={16}/></button><button type="button" className="ghost-pill" disabled={busy} onClick={() => setSentTo("")}>Change number</button></div></form>
+      : <form onSubmit={send}><p>Confirm your phone number with an SMS code and get the Verified tag under your name.</p><div className="verify-row"><input type="tel" autoComplete="tel" required value={phone} onChange={(event) => setPhone(event.target.value)} aria-label="Phone number" placeholder="+972 50 123 4567"/><button className="glow-button" disabled={busy || status === null}>{busy ? "Sending…" : "Send code"}</button></div></form>}
   </div></article>;
 }
 
