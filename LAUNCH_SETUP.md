@@ -57,21 +57,25 @@ Who can do what (enforced by the database, not by hiding buttons):
    `delete from public.catalog_admins where user_id = (select id from auth.users where email = '...');`
 3. Open the site → `#admin` (or Account → Owner area once signed in) → sign in.
 
-## Email confirmation codes for new accounts
+## Email confirmation for new accounts
 
-1. **Authentication → Sign In / Providers → Email**: keep **Allow new users to sign up** and **Confirm email** on.
-2. **Authentication → Emails → Templates → Confirm signup**: make the email show the code. Subject
-   `Your BH Clothing code`, message:
+The site accepts both ways of confirming an email:
 
-   ```html
-   <h2>Welcome to BH Clothing</h2>
-   <p>Your confirmation code is:</p>
-   <p style="font-size:28px;font-weight:700;letter-spacing:4px">{{ .Token }}</p>
-   <p>Enter it on the BH site to finish creating your account. If you didn't sign up, you can ignore this email.</p>
-   ```
-3. Before launch: Supabase's built-in email sender only sends a few emails per hour and is meant for testing.
-   Connect your own sender under **Authentication → Emails → SMTP Settings** (for example Resend or your mail
-   provider) so every customer gets their code.
+- **Link (works now, no extra setup):** Supabase's default email has a confirmation link. It brings the customer back
+  to the site, signed in. Set **Authentication → URL Configuration → Site URL** to the live site address and add the
+  same address (and the Replit preview address) under **Redirect URLs**, otherwise the link opens `localhost`.
+- **Code (needs custom SMTP):** editing email templates requires your own email sender
+  (**Authentication → Emails → SMTP Settings**). Once connected, set **Templates → Confirm signup** to:
+
+  ```html
+  <h2>Welcome to BH Clothing</h2>
+  <p>Your confirmation code is:</p>
+  <p style="font-size:28px;font-weight:700;letter-spacing:4px">{{ .Token }}</p>
+  <p>Or confirm with this link: <a href="{{ .ConfirmationURL }}">confirm my email</a></p>
+  ```
+
+Keep **Allow new users to sign up** and **Confirm email** on (**Authentication → Sign In / Providers → Email**).
+Before launch connect SMTP anyway: Supabase's built-in sender only sends a few emails per hour and is for testing.
 
 ## Browser settings
 

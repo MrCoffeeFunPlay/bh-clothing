@@ -31,7 +31,7 @@ const rowFrom = (payload, id) => ({
   product_colours: payload.colours.map((c, i) => ({ ...c, sort_order: i })), product_weight_prices: payload.weight_prices,
 });
 let db = products.map(p => rowFrom(store.productToPayload(p, categories), p.id));
-const backend = { down: false, failNextSave: false, saves: [], emails: [] };
+const backend = { down: false, failNextSave: false, saves: [], emails: [], signupRedirects: [] };
 const users = {
   'owner@example.com': { password: 'owner-pass', admin: true, confirmed: true },
   'customer@example.com': { password: 'customer-pass', admin: false, confirmed: true },
@@ -56,7 +56,8 @@ globalThis.fetch = async (url, init = {}) => {
     return tokenAnswer(body.email);
   }
   if (path === '/auth/v1/token?grant_type=refresh_token') return tokenAnswer(body.refresh_token.slice(8));
-  if (path === '/auth/v1/signup') {
+  if (path.startsWith('/auth/v1/signup')) {
+    backend.signupRedirects.push(new URL(url).searchParams.get('redirect_to'));
     if (users[body.email]) return json({ msg: 'User already registered' }, 422);
     users[body.email] = { password: body.password, admin: false, confirmed: false, code: '482915', data: body.data };
     backend.emails.push(body.email);
@@ -67,6 +68,7 @@ globalThis.fetch = async (url, init = {}) => {
     if (!user || body.type !== 'signup' || body.token !== user.code) return json({ msg: 'Token has expired or is invalid' }, 403);
     user.confirmed = true; return tokenAnswer(body.email);
   }
+  if (path === '/auth/v1/user') return email ? json({ id: 'uid:' + email, email }) : json({ msg: 'invalid JWT' }, 401);
   if (path === '/auth/v1/resend') { backend.emails.push(body.email); return json({}); }
   if (path === '/auth/v1/logout') return json(undefined, 204);
   if (path.startsWith('/rest/v1/profiles')) {
@@ -91,9 +93,9 @@ globalThis.fetch = async (url, init = {}) => {
 // ---- helpers -------------------------------------------------------------------------------------------------------
 const settle = async (ms = 40) => act(async () => { await new Promise(r => setTimeout(r, ms)); });
 let root;
-const visit = async (view = 'store') => {
+const visit = async (view = 'store', rawHash) => {
   if (root) await act(() => root.unmount());
-  window.history.replaceState({ view }, '', '#' + view);
+  if (rawHash) window.history.replaceState(null, '', rawHash); else window.history.replaceState({ view }, '', '#' + view);
   const { default: App } = await import('../.live-dom/App.js'); const { CurrencyProvider } = await import('../.live-dom/currency.js');
   root = createRoot(document.getElementById('root'));
   await act(() => root.render(jsx(CurrencyProvider, { children: jsx(App, {}) })));
@@ -251,12 +253,27 @@ assert.equal(modal(), null);
 assert.match(accountMenuText(), /new@example\.com/);
 assert.deepEqual(profiles['new@example.com'], { first_name: '', last_name: '', username: 'shira', birthday: '2000-01-15', country: '' });
 await click(btn('Sign out', document.querySelector('.account-dropdown')));
+assert.equal(backend.signupRedirects[0], 'http://localhost/', 'the confirmation link brings people back to the site');
 // An unconfirmed account cannot log in until the code is entered.
 users['late@example.com'] = { password: 'late-pass', admin: false, confirmed: false, code: '111222' };
 await click(document.querySelector('.account-menu .icon'));
 await signIn('late@example.com', 'late-pass');
 assert.match(modal().textContent, /VERIFY EMAIL/);
 
+
+// 11. Without a custom email template Supabase sends a confirmation link; it brings the customer back signed in.
+users['link@example.com'] = { password: 'link-pass', admin: false, confirmed: true };
+clearBrowser();
+await visit(undefined, '#access_token=token:link@example.com&refresh_token=refresh:link@example.com&expires_in=3600&token_type=bearer&type=signup');
+assert.match(document.querySelector('.link-notice.save-ok').textContent, /email is confirmed/);
+assert.match(accountMenuText(), /link@example\.com/);
+assert.equal(window.location.hash, '#account', 'the tokens are removed from the address');
+assert.ok(localStorage.getItem('bh-session-v1'));
+clearBrowser();
+await visit(undefined, '#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired');
+assert.match(document.querySelector('.link-notice.save-fail').textContent, /expired or was already used/);
+assert.equal(accountMenuText(), '');
+
 await act(() => root.unmount());
 rmSync('.live-dom', { recursive: true, force: true });
-console.log('PASS: real accounts (stay signed in after refresh, remember me, email code sign-up, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');
+console.log('PASS: real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');

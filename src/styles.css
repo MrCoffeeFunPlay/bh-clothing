@@ -473,3 +473,7 @@ footer { background:var(--ink); color:#f9f5ed; padding:45px 5.4vw 25px; }
 .admin-workspace .inventory-table article { grid-template-columns: 48px minmax(0, 1fr) 90px 90px auto; }
 .admin-workspace .inventory-table article > div:nth-child(2) { min-width: 0; }
 @media (max-width: 900px) { .admin-workspace .inventory-table article { grid-template-columns: 42px minmax(0, 1fr); } .admin-workspace .inventory-table .inventory-actions { grid-column: 1 / -1; justify-content: flex-start; } }
+.link-notice { position: fixed; left: 50%; top: 96px; transform: translateX(-50%); z-index: 60; display: flex; align-items: center; gap: 10px; max-width: min(560px, calc(100vw - 32px)); padding: 12px 14px 12px 18px; border-radius: 14px; font-size: 14px; font-weight: 600; box-shadow: 0 12px 32px rgba(51, 41, 32, .14); }
+.link-notice.save-ok { color: #1f5e34; background: #e8f5ec; border: 1px solid #b7dcc2; }
+.link-notice.save-fail { color: #9b2c22; background: #fbeae6; border: 1px solid #efc3ba; }
+.link-notice .icon { width: 28px; height: 28px; margin-left: auto; background: transparent; }

@@ -6,7 +6,7 @@ import { AssistantV2 } from "./AssistantV2";
 import { CurrencySelector, ProductPrice, productAmount, formatMoney, useCurrency } from "./currency";
 
 import { cartTotals, emptySale, type Sale } from "./pricing";
-import { currentSession, emptyProfile, fetchCatalog, fetchProfile, isCatalogAdmin, liveCatalogConfigured, productToPayload, resendSignupCode, saveProduct as saveLiveProduct, saveProfile, signIn, signOut, signUp, uploadProductImage, verifySignupCode, type AdminSession, type CategoryRow, type Profile, type UserSession } from "./catalogStore";
+import { currentSession, emptyProfile, sessionFromConfirmationLink, fetchCatalog, fetchProfile, isCatalogAdmin, liveCatalogConfigured, productToPayload, resendSignupCode, saveProduct as saveLiveProduct, saveProfile, signIn, signOut, signUp, uploadProductImage, verifySignupCode, type AdminSession, type CategoryRow, type Profile, type UserSession } from "./catalogStore";
 import { SaleFields, StoreSalePanel, SaleAnnouncement, saleError } from "./Sales";
 
 type View = "home" | "store" | "collection" | "club" | "account" | "reviews" | "product" | "cart" | "admin" | "info" | "plan" | "gift";
@@ -88,7 +88,24 @@ export default function App() {
     const [admin, own] = await Promise.all([isCatalogAdmin(next).catch(() => false), fetchProfile(next).catch(() => null)]);
     setIsOwner(admin === true); setProfile(own ?? emptyProfile()); setAccountReady(true);
   };
-  useEffect(() => { if (live) void currentSession().then(loadAccount); }, []);
+  // A confirmation link from the sign-up email lands here with the session in the address; read it before routing.
+  const [arrivedWith] = useState(() => typeof window === "undefined" ? "" : window.location.hash);
+  const [linkNotice, setLinkNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  useEffect(() => {
+    if (!live) return;
+    void (async () => {
+      const fromLink = /access_token=|error_description=/.test(arrivedWith) ? await sessionFromConfirmationLink(arrivedWith).catch(() => ({ error: "We couldn't confirm your email. Please try the link again." })) : null;
+      if (fromLink && "session" in fromLink) {
+        window.history.replaceState({ view: "account" }, "", "#account");
+        await loadAccount(fromLink.session);
+        setLinkNotice({ ok: true, text: "Your email is confirmed and you're signed in." });
+        go("account");
+        return;
+      }
+      if (fromLink && "error" in fromLink) { window.history.replaceState({ view: "home" }, "", "#home"); setLinkNotice({ ok: false, text: fromLink.error }); }
+      await loadAccount(await currentSession());
+    })();
+  }, []);
   const freshSession = async () => { const next = await currentSession(); if (next) setSession(next); else await loadAccount(null); return next; };
   const leave = async () => { await signOut(session); await loadAccount(null); go("home"); };
   const signedInWith = async (next: UserSession, details?: Partial<Profile>) => {
@@ -164,6 +181,7 @@ export default function App() {
     <button className="chat-trigger" onClick={() => setChat(!chat)}>{chat ? <X/> : <MessageCircle/>}</button>
     {chat && <AssistantV2 onClose={() => setChat(false)}/>}
     {cartOpen && <CartDrawer items={cart} remove={remove} onClose={() => setCartOpen(false)} go={go}/>}
+    {linkNotice && <div className={linkNotice.ok ? "link-notice save-ok" : "link-notice save-fail"} role={linkNotice.ok ? "status" : "alert"}>{linkNotice.ok ? <Check size={17}/> : <X size={17}/>}<span>{linkNotice.text}</span><button className="icon" aria-label="Close" onClick={() => setLinkNotice(null)}><X size={16}/></button></div>}
     {authOpen && <AuthModal live={live} onClose={() => setAuthOpen(false)} onSignedIn={(next, details) => void signedInWith(next, details)}/>}
     {!signedIn && <WelcomeOfferModal onJoin={() => setAuthOpen(true)}/>}
   </div>;
@@ -510,16 +528,16 @@ function AuthModal({ live, onClose, onSignedIn }: { live: boolean; onClose: () =
     void run(async () => {
       const session = await signUp(address, password, { username: details.username }, remember);
       if (session) { onSignedIn(session, details); return; }
-      setMode("verify"); setCooldown(60); setInfo(`We sent a confirmation code to ${address}.`);
+      setMode("verify"); setCooldown(60); setInfo(`Check ${address} for your confirmation email.`);
     });
   };
   const verify = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); const code = String(new FormData(event.currentTarget).get("code")); void run(async () => { onSignedIn(await verifySignupCode(email, code, remember), pending); }); };
-  const resend = () => void run(async () => { await resendSignupCode(email); setCooldown(60); setInfo(`A new code is on its way to ${email}.`); });
+  const resend = () => void run(async () => { await resendSignupCode(email); setCooldown(60); setInfo(`A new confirmation email is on its way to ${email}.`); });
   const rememberBox = <label className="remember-me"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)}/> Remember me on this device</label>;
   const messages = <>{error && <p className="auth-message error" role="alert">{error}</p>}{info && <p className="auth-message info" role="status">{info}</p>}</>;
   return <div className="modal-layer" onMouseDown={onClose}><section className="auth-modal login-redesign" role="dialog" aria-modal="true" aria-label="BH account" onMouseDown={(event) => event.stopPropagation()}><button className="icon auth-close" aria-label="Close" onClick={onClose}><X/></button><div className="login-brand"><b>BH</b><div><span><Sparkles size={16}/></span><span><Heart size={15}/></span><span><Gift size={16}/></span></div><p>MEMBERS GET MORE</p></div><div className="login-form">
     {!live ? <><p className="eyebrow"><UserRound size={14}/> BH ACCOUNT</p><h2>Accounts are<br/><em>offline</em><span>.</span></h2><p>This preview isn't connected to the store database, so signing in isn't available here.</p></>
-    : mode === "verify" ? <><p className="eyebrow"><BadgeCheck size={14}/> VERIFY EMAIL</p><h2>One last<br/><em>step</em><span>.</span></h2><p>Enter the code from the email we sent to <b>{email}</b>. It can take a minute to arrive; check your spam folder too.</p>{messages}<form onSubmit={verify}><label>Confirmation code<input name="code" required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6,8}" maxLength={8} placeholder="123456"/></label><button className="glow-button full" disabled={busy}>{busy ? "Checking…" : "Verify and continue"} <ArrowRight size={16}/></button></form><button className="auth-toggle" disabled={busy || cooldown > 0} onClick={resend}>{cooldown > 0 ? `Send a new code in ${cooldown}s` : <>Didn't get it? <b>Send a new code</b></>}</button><button className="auth-toggle" onClick={() => { setMode("login"); setError(""); setInfo(""); }}>Back to log in</button></>
+    : mode === "verify" ? <><p className="eyebrow"><BadgeCheck size={14}/> VERIFY EMAIL</p><h2>One last<br/><em>step</em><span>.</span></h2><p>We sent an email to <b>{email}</b>. Click the confirmation link in it, or enter the code if the email shows one. It can take a minute to arrive; check your spam folder too.</p>{messages}<form onSubmit={verify}><label>Confirmation code<input name="code" required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6,8}" maxLength={8} placeholder="123456"/></label><button className="glow-button full" disabled={busy}>{busy ? "Checking…" : "Verify and continue"} <ArrowRight size={16}/></button></form><button className="auth-toggle" disabled={busy || cooldown > 0} onClick={resend}>{cooldown > 0 ? `Send the email again in ${cooldown}s` : <>Didn't get it? <b>Send the email again</b></>}</button><button className="auth-toggle" onClick={() => { setMode("login"); setError(""); setInfo(""); }}>Back to log in</button></>
     : <><p className="eyebrow"><UserRound size={14}/> BH ACCOUNT</p><h2>{mode === "login" ? <>Welcome<br/>back<span>.</span></> : <>Create your<br/><em>BH</em><span>.</span></>}</h2><p>{mode === "login" ? "Sign in to reach your profile and BH benefits." : "Create an account to save your profile, reviews and birthday reward. We'll email you a code to confirm it's you."}</p>{messages}
       {mode === "login" ? <form onSubmit={login}><label>Email address<input name="email" required type="email" autoComplete="email" placeholder="you@email.com" defaultValue={email}/></label><label>Password<input name="password" required type="password" autoComplete="current-password" placeholder="Your password"/></label>{rememberBox}<button className="glow-button full" disabled={busy}>{busy ? "Signing in…" : "Log in"} <ArrowRight size={16}/></button></form>
       : <form onSubmit={create}><label>Username<input name="username" required minLength={3} maxLength={40} placeholder="Your name for reviews"/></label><label>Email address<input name="email" required type="email" autoComplete="email" placeholder="you@email.com" defaultValue={email}/></label><label>Date of birth<input name="birthday" type="date"/></label><label>Password<input name="password" required type="password" minLength={8} autoComplete="new-password" placeholder="At least 8 characters"/></label><label>Confirm password<input name="confirm" required type="password" minLength={8} autoComplete="new-password" placeholder="Repeat password"/></label>{rememberBox}<button className="glow-button full" disabled={busy}>{busy ? "Creating…" : "Create and verify email"} <ArrowRight size={16}/></button></form>}

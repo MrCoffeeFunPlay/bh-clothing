@@ -173,15 +173,32 @@ export async function signIn(email: string, password: string, remember = true) {
   return keep(toSession(answer, remember))!;
 }
 
-// Creates the account. With email confirmation on (the BH setting), no session is returned until the code is entered.
+// Creates the account. With email confirmation on (the BH setting), no session is returned until the email is
+// confirmed, either with the code (custom email template) or the link in Supabase's default email, which brings the
+// visitor back to this page (see sessionFromConfirmationLink).
 export async function signUp(email: string, password: string, details: Record<string, string>, remember = true) {
-  const answer = await request<Partial<TokenAnswer>>("/auth/v1/signup", { method: "POST", body: JSON.stringify({ email, password, data: details }) });
+  const back = typeof window !== "undefined" ? `?redirect_to=${encodeURIComponent(window.location.origin + window.location.pathname)}` : "";
+  const answer = await request<Partial<TokenAnswer>>(`/auth/v1/signup${back}`, { method: "POST", body: JSON.stringify({ email, password, data: details }) });
   return answer.access_token && answer.refresh_token && answer.user ? keep(toSession(answer as TokenAnswer, remember)) : null;
 }
 
 export async function verifySignupCode(email: string, code: string, remember = true) {
   const answer = await request<TokenAnswer>("/auth/v1/verify", { method: "POST", body: JSON.stringify({ type: "signup", email, token: code.trim() }) });
   return keep(toSession(answer, remember))!;
+}
+
+// The confirmation link in Supabase's default email returns here with the session in the address:
+// #access_token=…&refresh_token=…&expires_in=…&type=signup (or #error=…&error_description=…).
+export async function sessionFromConfirmationLink(hash: string): Promise<{ session: UserSession } | { error: string } | null> {
+  const values = new URLSearchParams(hash.replace(/^#/, ""));
+  if (values.get("error") || values.get("error_description")) {
+    const text = values.get("error_description") || values.get("error") || "";
+    return { error: /expired|invalid/i.test(text) ? "This confirmation link has expired or was already used. Log in, or sign up again for a new link." : text };
+  }
+  const accessToken = values.get("access_token"); const refreshToken = values.get("refresh_token");
+  if (!accessToken || !refreshToken) return null;
+  const user = await request<{ id: string; email?: string }>("/auth/v1/user", {}, accessToken);
+  return { session: keep(toSession({ access_token: accessToken, refresh_token: refreshToken, expires_in: Number(values.get("expires_in")) || 3600, user }, true))! };
 }
 
 export const resendSignupCode = (email: string) =>
