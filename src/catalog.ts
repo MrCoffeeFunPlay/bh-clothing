@@ -51,16 +51,17 @@ const withProductImages = (colors: Record<string, string>, lookbookImages: strin
   lookbookImages,
 });
 
+// Loose Shorts on a studio wall like the tees, in a cooler stone shade (tools/tee-mockups/build_shorts.py).
 const looseShorts = {
-  Black: asset("Pants/loose shorts/black.png"),
-  Blue: asset("Pants/loose shorts/blue0.png"),
-  Gray: asset("Pants/loose shorts/gray.png"),
-  Khaki: asset("Pants/loose shorts/khaki.png"),
-  Mint: asset("Pants/loose shorts/mint.png"),
-  Pink: asset("Pants/loose shorts/pink.png"),
-  Red: asset("Pants/loose shorts/red.png"),
-  White: asset("Pants/loose shorts/white.png"),
-  Yellow: asset("Pants/loose shorts/yellow.png"),
+  Black: asset("Pants/loose-shorts/black.jpg"),
+  Blue: asset("Pants/loose-shorts/blue.jpg"),
+  Gray: asset("Pants/loose-shorts/gray.jpg"),
+  Khaki: asset("Pants/loose-shorts/khaki.jpg"),
+  Mint: asset("Pants/loose-shorts/mint.jpg"),
+  Pink: asset("Pants/loose-shorts/pink.jpg"),
+  Red: asset("Pants/loose-shorts/red.jpg"),
+  White: asset("Pants/loose-shorts/white.jpg"),
+  Yellow: asset("Pants/loose-shorts/yellow.jpg"),
 };
 
 const accessories = {

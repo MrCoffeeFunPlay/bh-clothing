@@ -2,7 +2,7 @@
 // schemas, then checks what visitors, signed-in customers and admins can and cannot do.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 
 const ADMIN = '00000000-0000-4000-8000-000000000001';
@@ -346,4 +346,13 @@ test('saved bags: each member keeps their own bag in their account; prices are n
     assert.equal((await rows(`select public.admin_automation_reach('cart_left', 1, true) as n`))[0].n, 1);
     assert.equal((await rows(`select public.admin_automation_reach('cart_left', 5, false) as n`))[0].n, 0);
   });
+});
+
+test('Loose Shorts use the studio photos, and every one of them exists in the site', async () => {
+  const colours = await rows(`select name, front_image from public.product_colours where product_id = 5 order by sort_order`);
+  assert.equal(colours.length, 9);
+  for (const { name, front_image } of colours) {
+    assert.equal(front_image, `/catalog/Pants/loose-shorts/${name.toLowerCase()}.jpg`);
+    assert.ok(existsSync('public' + front_image), `${front_image} is in public/`);
+  }
 });
