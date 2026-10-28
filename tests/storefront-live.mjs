@@ -49,6 +49,7 @@ const uploads = [];
 let automationsDb = [{ id: 1, name: 'We miss you', trigger: 'no_sign_in', days: 30, channel: 'email', subject: '{first_name}, it\'s been a while', body: 'Hi {first_name}', coupon_code: '', button_label: 'See what\'s new', marketing: true, active: false }];
 let nextAutomationId = 2;
 let ordersDb = []; let nextOrderId = 1;
+const savedBags = {}; // email -> lines
 const orderRow = (input, id) => {
   const subtotal = input.items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
   const email = (input.customer_email || '').trim().toLowerCase();
@@ -139,6 +140,15 @@ globalThis.fetch = async (url, init = {}) => {
     if (!email || !users[email]?.phoneConfirmed) return json(0);
     const before = tagsOf(email).size; tagsDb.filter(tag => tag.rule === 'phone_verified').forEach(tag => tagsOf(email).add(tag.id));
     return json(tagsOf(email).size - before);
+  }
+  if (path.startsWith('/rest/v1/cart_items')) {
+    if (!email) return json({ message: 'permission denied for table cart_items' }, 401);
+    return json(structuredClone(savedBags[email] ?? []));
+  }
+  if (path === '/rest/v1/rpc/save_my_cart') {
+    if (!email) return json({ message: 'permission denied' }, 401);
+    assert.ok(body.lines.every(line => !('unit_price' in line) && !('price' in line)), 'prices are never sent with the bag');
+    savedBags[email] = structuredClone(body.lines); return json(body.lines.length);
   }
   if (path === '/rest/v1/rpc/admin_save_order') {
     if (!isAdmin) return json({ code: '42501', message: 'Only an authorised BH admin can change orders.' }, 403);
@@ -542,6 +552,44 @@ await navigate('home');
 await click(document.querySelector('header .account-menu > button'));
 assert.match(document.querySelector('.account-panel').textContent, /MY PROFILE/i);
 
+// 20. The bag is saved: in this browser for visitors, in the account for members (and it follows them to any device).
+const bagCount = () => document.querySelector('header .bag span').textContent;
+const addOniBlade = async (size) => {
+  await navigate('store'); await click(document.querySelector('.category-float'));
+  await click(btn('Oni Blade', [...document.querySelectorAll('.card')].find(card => card.textContent.includes('Oni Blade'))));
+  await click(btn(size, document.querySelector('.sizes'))); await click(document.querySelector('.add-bag'));
+};
+await click(btn('Sign out', document.querySelector('.account-dropdown')));
+clearBrowser();
+await visit('store');
+assert.equal(bagCount(), '00');
+await addOniBlade('M');
+assert.equal(bagCount(), '01');
+await visit('store');
+assert.equal(bagCount(), '01', 'a visitor\'s bag survives a refresh');
+// Signing in moves the visitor's bag into the account.
+savedBags['dana@gmail.com'] = [{ product_id: products.find(p => p.name === 'Rose').id, colour: 'White', size: 'L', fabric_weight: '220g', quantity: 2 }];
+await visit('account');
+await signIn('dana@gmail.com', 'dana-pass');
+await settle(400);
+assert.equal(bagCount(), '03', 'saved bag (2) plus the piece added before signing in (1)');
+assert.equal(savedBags['dana@gmail.com'].length, 2); assert.equal(localStorage.getItem('bh-bag-v1'), null, 'no longer kept in the browser');
+await addOniBlade('M'); await settle(400);
+assert.deepEqual(savedBags['dana@gmail.com'].map(line => [line.size, line.quantity]), [['L', 2], ['M', 2]], 'same piece again adds to its quantity');
+// Another device: the same bag is there after signing in.
+clearBrowser();
+await visit('account');
+assert.equal(bagCount(), '00');
+await signIn('dana@gmail.com', 'dana-pass'); await settle(400);
+assert.equal(bagCount(), '04', 'the bag follows the member');
+await click(document.querySelector('header .bag'));
+await click(document.querySelector('.drawer-items button'));
+await settle(400);
+assert.equal(bagCount(), '03');
+assert.equal(savedBags['dana@gmail.com'].reduce((sum, line) => sum + line.quantity, 0), 3, 'removing a piece is saved too');
+await click(btn('Sign out', document.querySelector('.account-dropdown')));
+assert.equal(bagCount(), '00', 'signed out: the member\'s bag is not shown');
+
 await act(() => root.unmount());
 rmSync('.live-dom', { recursive: true, force: true });
-console.log('PASS: unpaid test orders recorded by the owner and shown to members (no payment or receipt from the website), BH updates choice, designed automation emails, automations, profile pictures, phone verification with the Verified tag, owner-managed member tags, real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');
+console.log('PASS: bag saved in the account and in the browser, unpaid test orders recorded by the owner and shown to members (no payment or receipt from the website), BH updates choice, designed automation emails, automations, profile pictures, phone verification with the Verified tag, owner-managed member tags, real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');
