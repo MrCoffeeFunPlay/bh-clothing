@@ -16,7 +16,7 @@ export const triggerInfo: Record<AutomationTrigger, { label: string; sentence: (
   no_sign_in: { label: "Hasn't signed in for…", sentence: (days) => `When a member hasn't signed in for ${days} days`, icon: Clock, usesDays: true, ready: true },
   no_order: { label: "Hasn't ordered for…", sentence: (days) => `When a member hasn't ordered for ${days} days`, icon: ShoppingBag, usesDays: true, ready: false },
   birthday: { label: "On their birthday", sentence: () => "On the member's birthday", icon: Cake, usesDays: false, ready: true },
-  cart_left: { label: "Left items in the bag for…", sentence: (days) => `When items stay in the bag for ${days} days`, icon: ShoppingBag, usesDays: true, ready: false },
+  cart_left: { label: "Left items in the bag for…", sentence: (days) => `When items stay in the bag for ${days} days`, icon: ShoppingBag, usesDays: true, ready: true },
 };
 
 const placeholders = ["{first_name}", "{days}", "{coupon}", "{store_link}"] as const;
@@ -84,7 +84,7 @@ export function AutomationsAdmin({ freshSession }: { freshSession?: Fresh }) {
         <label className="wide">Email subject<input required maxLength={120} value={draft.subject} onChange={(event) => setDraft({ ...draft, subject: event.target.value })} placeholder="e.g. {first_name}, it's been a while"/></label>
         <label className="wide">Message<textarea required maxLength={4000} rows={8} value={draft.body} onChange={(event) => setDraft({ ...draft, body: event.target.value })}/></label>
         <div className="wide placeholder-row"><span>Add to the message:</span>{placeholders.map((token) => <button type="button" key={token} className="ghost-pill" onClick={() => insert(token)}>{token}</button>)}</div>
-        {!triggerInfo[draft.trigger].ready && <p className="wide automation-warning">This rule needs online orders and saved bags, which the store doesn't have yet. You can prepare it now.</p>}
+        {!triggerInfo[draft.trigger].ready && <p className="wide automation-warning">This rule needs paid online orders, which the store doesn't have yet. You can prepare it now.</p>}
         <label className="wide automation-switch"><input type="checkbox" checked={draft.marketing} onChange={(event) => setDraft({ ...draft, marketing: event.target.checked })}/> Marketing message: only for members who chose to get BH updates (adds an unsubscribe link)</label>
         <label className="wide automation-switch"><input type="checkbox" checked={draft.active} onChange={(event) => setDraft({ ...draft, active: event.target.checked })}/> Switched on</label>
         <div className="wide tag-form-actions"><button className="glow-button" disabled={busy}>{busy ? "Saving…" : draft.id ? "Save automation" : "Create automation"} <Check size={16}/></button><button type="button" className="ghost-pill" onClick={() => setDraft(null)}>Cancel</button></div>

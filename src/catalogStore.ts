@@ -458,3 +458,15 @@ export async function saveOrder(order: OrderDraft, token: string) {
   const input = { ...order, customer_name: order.customer_name.trim(), customer_email: order.customer_email.trim() };
   return request<number>("/rest/v1/rpc/admin_save_order", { method: "POST", body: JSON.stringify({ input }) }, token);
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Saved bag: a member's bag lives in their account (prices are never stored; they come from the live catalogue).
+// ---------------------------------------------------------------------------------------------------------------
+export type BagLine = { product_id: number; colour: string; size: string; fabric_weight: string; quantity: number };
+
+export const fetchMyBag = (session: UserSession) =>
+  request<BagLine[]>(`/rest/v1/cart_items?user_id=eq.${encodeURIComponent(session.userId)}&select=product_id,colour,size,fabric_weight,quantity&order=sort_order`, {}, session.accessToken)
+    .then(rows => (rows ?? []).map(row => ({ ...row, product_id: Number(row.product_id) })));
+
+export const saveMyBag = (session: UserSession, lines: BagLine[]) =>
+  request<number>("/rest/v1/rpc/save_my_cart", { method: "POST", body: JSON.stringify({ lines }) }, session.accessToken);

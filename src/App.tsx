@@ -1,4 +1,4 @@
-import { FormEvent, MouseEvent as ReactMouseEvent, type ReactNode, useEffect, useState } from "react";
+import { FormEvent, MouseEvent as ReactMouseEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Activity, ArrowRight, Tags as TagsIcon, Workflow, AtSign, BadgeCheck, BadgeDollarSign, BarChart3, Bell, CakeSlice, CalendarDays, Check, ChevronLeft, ChevronDown, CircleDollarSign, CircleHelp, ClipboardList, Coins, CreditCard, Crown, Download, FileText, Gem, Gift, Heart, Layers, LockKeyhole, LogOut, Mail, MapPin, Menu, MessageCircle, PackageCheck, Plus, ReceiptText, Search, Send, Settings, ShieldCheck, Shirt, ShoppingBag, Sparkles, Star, Swords, Ticket, Truck, UserPen, UserRound, Users, WalletCards, X, ZoomIn } from "lucide-react";
 import { categories, products, type Product } from "./catalog";
 import { WelcomeOfferModal } from "./WelcomeOfferModal";
@@ -6,7 +6,8 @@ import { AssistantV2 } from "./AssistantV2";
 import { CurrencySelector, ProductPrice, productAmount, formatMoney, useCurrency } from "./currency";
 
 import { cartTotals, emptySale, type Sale } from "./pricing";
-import { CatalogError, claimPhoneTags, currentSession, fetchMyTags, type Tag, emptyProfile, enabledSocialProviders, rememberSocialChoice, sessionFromConfirmationLink, socialSignInUrl, type SocialProvider, fetchCatalog, fetchProfile, isCatalogAdmin, liveCatalogConfigured, productToPayload, resendSignupCode, saveProduct as saveLiveProduct, saveProfile, signIn, signOut, signUp, uploadProductImage, verifySignupCode, type AdminSession, type CategoryRow, type Profile, type UserSession } from "./catalogStore";
+import { bagItems, lineOf, mergeLines, readGuestBag, removeUnit, writeGuestBag } from "./bag";
+import { CatalogError, claimPhoneTags, currentSession, fetchMyBag, fetchMyTags, saveMyBag, type BagLine, type Tag, emptyProfile, enabledSocialProviders, rememberSocialChoice, sessionFromConfirmationLink, socialSignInUrl, type SocialProvider, fetchCatalog, fetchProfile, isCatalogAdmin, liveCatalogConfigured, productToPayload, resendSignupCode, saveProduct as saveLiveProduct, saveProfile, signIn, signOut, signUp, uploadProductImage, verifySignupCode, type AdminSession, type CategoryRow, type Profile, type UserSession } from "./catalogStore";
 import { SaleFields, StoreSalePanel, SaleAnnouncement, saleError } from "./Sales";
 import { AutomationsAdmin } from "./Automations";
 import { MyOrders, OrdersAdmin } from "./Orders";
@@ -56,7 +57,10 @@ export default function App() {
   const [search, setSearch] = useState(false);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
-  const [cart, setCart] = useState<Product[]>([]);
+  // The bag: saved in the member's account (or in this browser for visitors). Prices always come from the catalogue.
+  const [bagLines, setBagLines] = useState<BagLine[]>(() => readGuestBag());
+  const [bagOwner, setBagOwner] = useState<string | null>(null); // whose saved bag is loaded; saving waits for it
+  const savedBag = useRef("");
   const [product, setProduct] = useState(products[0]);
   const [clubTab, setClubTab] = useState<ClubTab>("points");
   const [chat, setChat] = useState(false);
@@ -78,7 +82,8 @@ export default function App() {
   // Live mode: the shared catalogue comes from Supabase. Preview mode (no database configured): built-in catalogue,
   // and admin changes stay in this browser.
   const [catalogState, setCatalogState] = useState<{ status: "preview" | "loading" | "live" | "error"; message?: string; categories?: CategoryRow[] }>(() => live ? { status: "loading" } : { status: "preview" });
-  const [, setCatalogRevision] = useState(() => { if (!live) restoreCatalogPreview(); return 0; });
+  const [catalogRevision, setCatalogRevision] = useState(() => { if (!live) restoreCatalogPreview(); return 0; });
+  const cart = useMemo(() => bagItems(bagLines, products), [bagLines, catalogRevision]);
   const loadCatalog = async () => {
     try {
       const next = await fetchCatalog();
@@ -93,9 +98,33 @@ export default function App() {
     }
   };
   useEffect(() => { if (live) void loadCatalog(); }, []);
+  // Signing in: the account's saved bag plus anything added before signing in (that moves into the account).
+  const loadBag = async (next: UserSession) => {
+    try {
+      const saved = await fetchMyBag(next);
+      const guest = readGuestBag();
+      const merged = mergeLines(saved, guest);
+      if (guest.length) { await saveMyBag(next, merged); writeGuestBag([]); }
+      savedBag.current = JSON.stringify(merged);
+      setBagLines(merged); setBagOwner(next.userId);
+    } catch {
+      setBagOwner(null); // couldn't read the saved bag: don't overwrite it
+    }
+  };
+  useEffect(() => {
+    if (!session) { if (accountReady) writeGuestBag(bagLines); return; }
+    if (bagOwner !== session.userId || JSON.stringify(bagLines) === savedBag.current) return;
+    const timer = window.setTimeout(() => void (async () => {
+      const active = await currentSession();
+      if (!active || active.userId !== bagOwner) return;
+      await saveMyBag(active, bagLines).then(() => { savedBag.current = JSON.stringify(bagLines); }).catch(() => undefined);
+    })(), 300);
+    return () => window.clearTimeout(timer);
+  }, [bagLines, bagOwner, session?.userId, accountReady]);
   const loadAccount = async (next: UserSession | null) => {
     setSession(next);
-    if (!next) { setIsOwner(false); setProfile(null); setMyTags([]); setAccountReady(true); return; }
+    if (!next) { setIsOwner(false); setProfile(null); setMyTags([]); setBagOwner(null); setBagLines(readGuestBag()); setAccountReady(true); return; }
+    void loadBag(next);
     // Phone tags the owner created after the member verified are collected here too.
     const tags = claimPhoneTags(next).catch(() => 0).then(() => fetchMyTags(next)).catch(() => [] as Tag[]);
     const [admin, own, mine] = await Promise.all([isCatalogAdmin(next).catch(() => false), fetchProfile(next).catch(() => null), tags]);
@@ -146,8 +175,8 @@ export default function App() {
   }, []);
   const go = (next: View) => { window.history.pushState({ view: next }, "", `#${next}`); setView(next); setMenu(false); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const open = (next: Product) => { window.history.pushState({ view: "product", productId: next.id }, "", "#product"); setProduct(next); setView("product"); setMenu(false); window.scrollTo({ top: 0, behavior: "smooth" }); };
-  const add = (next: Product) => { setCart((items) => [...items, next]); setCartOpen(true); };
-  const remove = (index: number) => setCart((items) => items.filter((_, itemIndex) => itemIndex !== index));
+  const add = (next: Product) => { setBagLines((lines) => mergeLines(lines, [lineOf(next)])); setCartOpen(true); };
+  const remove = (index: number) => { const item = cart[index]; if (item) setBagLines((lines) => removeUnit(lines, item)); };
   const openInfo = (page: InfoPage) => { setInfoPage(page); go("info"); };
   const openWallet = () => { setAccountSection("wallet"); go("account"); };
   const openPlan = (plan: PlanName) => { setSelectedPlan(plan); go("plan"); };

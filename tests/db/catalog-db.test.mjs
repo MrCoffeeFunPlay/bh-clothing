@@ -310,3 +310,40 @@ test('orders: admins record them (totals worked out by the database), members se
   await db.query(`update public.orders set payment_status = 'paid', payment_provider = 'provider', payment_reference = 'tx-1' where id = $1`, [id]);
   assert.ok((await rows(`select paid_at from public.orders where id = $1`, [id]))[0].paid_at);
 });
+
+test('saved bags: each member keeps their own bag in their account; prices are never stored', async () => {
+  const lines = [
+    { product_id: 1, colour: 'Black', size: 'M', fabric_weight: '220g', quantity: 2 },
+    { product_id: 5, colour: 'Black', size: 'L', quantity: 1, unit_price: 0.01 },
+    { product_id: 1, colour: 'Black', size: 'M', fabric_weight: '220g', quantity: 1 }, // same piece again: quantities add up
+  ];
+  await as('visitor', async () => {
+    await assert.rejects(db.query(`select public.save_my_cart($1)`, [JSON.stringify(lines)]), /permission denied/);
+    await assert.rejects(db.query(`select * from public.cart_items`), /permission denied/);
+  });
+  await as('customer', async () => {
+    assert.equal((await rows(`select public.save_my_cart($1) as n`, [JSON.stringify(lines)]))[0].n, 2);
+    assert.deepEqual((await rows(`select product_id::int, colour, size, fabric_weight, quantity from public.cart_items order by sort_order`)).map(Object.values),
+      [[1, 'Black', 'M', '220g', 3], [5, 'Black', 'L', '', 1]]);
+    assert.ok(!(await rows(`select column_name from information_schema.columns where table_name = 'cart_items'`)).some(r => /price/.test(r.column_name)), 'no prices in the bag');
+    await assert.rejects(db.query(`insert into public.cart_items (user_id, product_id, quantity) values ('${ADMIN}', 1, 1)`), /row-level security/, 'cannot fill someone else\'s bag');
+    await assert.rejects(db.query(`select public.save_my_cart($1)`, [JSON.stringify([{ product_id: 1, quantity: 1, colour: 'x'.repeat(50) }])]), /check constraint/);
+  });
+  await as('admin', async () => {
+    await db.query(`select public.save_my_cart($1)`, [JSON.stringify([{ product_id: 2, colour: 'White', size: 'S', fabric_weight: '220g', quantity: 1 }])]);
+    assert.deepEqual((await rows(`select product_id::int from public.cart_items`)).map(r => r.product_id), [2], 'even an admin sees only their own bag');
+  });
+  await as('customer', async () => {
+    assert.equal((await rows(`select count(*)::int as n from public.cart_items`))[0].n, 2, 'other members cannot see or change it');
+    assert.equal((await rows(`select public.save_my_cart('[]') as n`))[0].n, 0, 'emptying the bag');
+    await db.query(`select public.save_my_cart($1)`, [JSON.stringify([{ product_id: 3, colour: 'Black', size: 'M', fabric_weight: '220g', quantity: 1 }])]);
+  });
+  // Abandoned bags: the automation counts bags untouched for X days (only members with updates on).
+  await db.query(`update public.cart_items set updated_at = now() - interval '3 days' where user_id = '${CUSTOMER}'`);
+  await db.query(`update public.profiles set marketing_opt_in = true where id = '${CUSTOMER}'`);
+  await as('admin', async () => {
+    assert.equal((await rows(`select public.admin_automation_reach('cart_left', 1, false) as n`))[0].n, 1);
+    assert.equal((await rows(`select public.admin_automation_reach('cart_left', 1, true) as n`))[0].n, 1);
+    assert.equal((await rows(`select public.admin_automation_reach('cart_left', 5, false) as n`))[0].n, 0);
+  });
+});
