@@ -11,12 +11,14 @@ import { CatalogError, claimPhoneTags, currentSession, fetchMyBag, fetchMyTags, 
 import { SaleFields, StoreSalePanel, SaleAnnouncement, saleError } from "./Sales";
 import { AutomationsAdmin } from "./Automations";
 import { InstallApp } from "./InstallApp";
+import { BUSINESS_EMAIL, LEGAL_UPDATED, privacySections, termsSections, type LegalSection } from "./legal";
 import { MyOrders, OrdersAdmin } from "./Orders";
 import { Avatar, AvatarEditor, PhoneVerify, TagList, TagsAdmin, initials } from "./Members";
 
 type View = "home" | "store" | "collection" | "club" | "account" | "reviews" | "product" | "cart" | "admin" | "info" | "plan" | "gift";
 type AccountSection = "profile" | "orders" | "wallet" | "settings";
 type InfoPage = "about" | "faq" | "terms" | "privacy";
+const infoPages: InfoPage[] = ["about", "faq", "terms", "privacy"];
 type PlanName = "BH CORE" | "BH PLUS" | "BH BLACK";
 const saveCatalogPreview = () => { try { localStorage.setItem("bh-catalog-preview-v3", JSON.stringify(products)); } catch { /* The preview works without browser storage. */ } };
 const restoreCatalogPreview = () => {
@@ -29,7 +31,7 @@ const restoreCatalogPreview = () => {
     }
   } catch { /* Ignore invalid preview data. */ }
 };
-const contactEmail = "hello@bhclothing.com";
+const contactEmail = BUSINESS_EMAIL;
 
 function Stars({ value }: { value: number }) {
   return <span className="stars">{Array.from({ length: 5 }, (_, index) => <Star key={index} size={13} fill={index < Math.round(value) ? "currentColor" : "none"} />)}</span>;
@@ -178,7 +180,7 @@ export default function App() {
   const open = (next: Product) => { window.history.pushState({ view: "product", productId: next.id }, "", "#product"); setProduct(next); setView("product"); setMenu(false); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const add = (next: Product) => { setBagLines((lines) => mergeLines(lines, [lineOf(next)])); setCartOpen(true); };
   const remove = (index: number) => { const item = cart[index]; if (item) setBagLines((lines) => removeUnit(lines, item)); };
-  const openInfo = (page: InfoPage) => { setInfoPage(page); go("info"); };
+  const openInfo = (page: InfoPage) => { setInfoPage(page); window.history.pushState({ view: "info", info: page }, "", `#${page}`); setView("info"); setMenu(false); window.scrollTo({ top: 0, behavior: "auto" }); };
   const openWallet = () => { setAccountSection("wallet"); go("account"); };
   const openPlan = (plan: PlanName) => { setSelectedPlan(plan); go("plan"); };
   const publishItem = (item: Omit<Product, "id" | "rating" | "reviews">) => { products.push({ ...item, id: Math.max(...products.map((product) => product.id)) + 1, rating: 0, reviews: 0 }); saveCatalogPreview(); setCatalogRevision((revision) => revision + 1); };
@@ -186,12 +188,16 @@ export default function App() {
   const listed = products.filter((item) => (category === "All" || item.category === category) && (item.name + " " + item.category).toLowerCase().includes(query.toLowerCase()));
   useEffect(() => {
     const restoreHistoryRoute = () => {
-      const state = window.history.state as { view?: View; productId?: number } | null;
+      const state = window.history.state as { view?: View; productId?: number; info?: InfoPage } | null;
+      if (state?.info) setInfoPage(state.info);
       const hashView = window.location.hash.slice(1) as View;
       const nextView = state?.view || (Object.keys({ home: 1, store: 1, collection: 1, club: 1, account: 1, reviews: 1, product: 1, cart: 1, admin: 1, info: 1, plan: 1, gift: 1 }).includes(hashView) ? hashView : "home");
       if (state?.productId) { const nextProduct = products.find((item) => item.id === state.productId); if (nextProduct) setProduct(nextProduct); }
       setView(nextView); setMenu(false); window.scrollTo({ top: 0, behavior: "auto" });
     };
+    // Information pages have their own addresses (#about, #faq, #terms, #privacy) so they can be linked to directly.
+    const infoLinked = window.location.hash.slice(1) as InfoPage;
+    if (!window.history.state && infoPages.includes(infoLinked)) window.history.replaceState({ view: "info", info: infoLinked }, "", "#" + infoLinked);
     if (!window.history.state) { const linked = window.location.hash.slice(1); const known = ["home", "store", "collection", "club", "account", "reviews", "cart", "admin", "info", "plan", "gift"].includes(linked); window.history.replaceState({ view: known ? linked : "home" }, "", "#" + (known ? linked : "home")); } restoreHistoryRoute();
     window.addEventListener("popstate", restoreHistoryRoute);
     return () => window.removeEventListener("popstate", restoreHistoryRoute);
@@ -346,7 +352,7 @@ function AdminDashboardV2({ mode, go, publishItem, updateItem, session, liveProd
   const [showEditor, setShowEditor] = useState(false);
   const [draft, setDraft] = useState<CatalogDraft>(blankCatalogDraft);
   const [clubTab, setClubTab] = useState<"plans" | "points">("plans");
-  const [contact, setContact] = useState(() => readAdminValue("bh-admin-settings", { email: "hello@bhclothing.com", whatsapp: "", instagram: "", welcome: "10" }));
+  const [contact, setContact] = useState(() => readAdminValue("bh-admin-settings", { email: BUSINESS_EMAIL, whatsapp: "", instagram: "", welcome: "10" }));
   const [plans, setPlans] = useState<ClubPlanDraft[]>(() => readAdminValue<ClubPlanDraft[]>("bh-club-plans", [
     { name: "BH CORE", price: "$6 / month", description: "Member prices and early previews.", benefits: "Member pricing\nEarly previews\nBirthday reward", active: true },
     { name: "BH PLUS", price: "$12 / month", description: "Extra savings and priority drops.", benefits: "Everything in Core\nPriority drop access\nExtra member savings", active: true },
@@ -637,7 +643,8 @@ function Assistant({ onClose }: { onClose: () => void }) {
 }
 
 function Info({ page, openInfo }: { page: InfoPage; openInfo: (page: InfoPage) => void }) {
-  const pages = { about: ["About BH", "A wardrobe with a point of view.", "BH Clothing is built around elevated everyday pieces: better weight, better shape, and an easy way to wear your story. Anime is one of our collections, not the whole identity — it lives naturally beside the rest of the wardrobe."], faq: ["FAQ", "The useful answers.", "Shipping, returns, BH Points and sizing are kept simple. Need a personal answer? The BH Assistant can take you to WhatsApp or email."], terms: ["Terms & Conditions", "The clear version.", "These storefront terms are a design-stage placeholder. Before launch, BH will publish its final sales, delivery, returns and subscription terms for every market it serves."], privacy: ["Privacy", "Your details stay yours.", "This prototype does not process live payments or real account data. Before launch, BH will publish a complete privacy policy covering accounts, analytics, marketing and payment providers."] } as const;
+  const pages = { about: ["About BH", "A wardrobe with a point of view", "BH Clothing is built around elevated everyday pieces: better weight, better shape, and an easy way to wear your story. Anime is one of our collections, not the whole identity — it lives naturally beside the rest of the wardrobe."], faq: ["FAQ", "The useful answers", "Shipping, returns, BH Points and sizing are kept simple. Need a personal answer? The BH Assistant can take you to WhatsApp or email."], terms: ["Terms & Conditions", "The clear version", `Last updated ${LEGAL_UPDATED}.`], privacy: ["Privacy Policy", "Your details stay yours", `Last updated ${LEGAL_UPDATED}.`] } as const;
+  const legal: Partial<Record<InfoPage, LegalSection[]>> = { privacy: privacySections, terms: termsSections };
   const [label, heading, copy] = pages[page];
-  return <section className="info-page"><aside><p className="eyebrow">BH INFORMATION</p>{(["about","faq","terms","privacy"] as InfoPage[]).map((item) => <button key={item} className={page === item ? "active" : ""} onClick={() => openInfo(item)}>{pages[item][0]}<ArrowRight size={15}/></button>)}</aside><article><p className="eyebrow">{label}</p><h1>{heading}<span>.</span></h1><p>{copy}</p>{page === "faq" && <div className="faq-list">{[["Where do you ship?","BH is designed for international shipping. Delivery time and price appear at checkout."],["How do BH Points work?","Earn them after eligible purchases; use them later as cart credit or a BH Gift Card."],["Can I return something?","Eligible pieces can be requested for return within 30 days of delivery."]].map(([question, answer]) => <details key={question}><summary>{question}<ChevronDown size={16}/></summary><p>{answer}</p></details>)}</div>}</article></section>;
+  return <section className="info-page"><aside><p className="eyebrow">BH INFORMATION</p>{(["about","faq","terms","privacy"] as InfoPage[]).map((item) => <button key={item} className={page === item ? "active" : ""} onClick={() => openInfo(item)}>{pages[item][0]}<ArrowRight size={15}/></button>)}</aside><article><p className="eyebrow">{label}</p><h1>{heading}<span>.</span></h1><p>{copy}</p>{legal[page] && <div className="legal-text">{legal[page]!.map((section) => <section key={section.heading}><h2>{section.heading}</h2>{section.points && <ul>{section.points.map((point) => <li key={point}>{point}</li>)}</ul>}{section.paragraphs?.map((text) => <p key={text}>{text}</p>)}</section>)}</div>}{page === "faq" && <div className="faq-list">{[["Where do you ship?","BH is designed for international shipping. Delivery time and price appear at checkout."],["How do BH Points work?","Earn them after eligible purchases; use them later as cart credit or a BH Gift Card."],["Can I return something?","Eligible pieces can be requested for return within 30 days of delivery."]].map(([question, answer]) => <details key={question}><summary>{question}<ChevronDown size={16}/></summary><p>{answer}</p></details>)}</div>}</article></section>;
 }
