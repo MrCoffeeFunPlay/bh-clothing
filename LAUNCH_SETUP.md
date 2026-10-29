@@ -108,3 +108,27 @@ set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (see `.env.example`)
   database, owner sign-in, saving, failed save, hiding a product, another browser).
 - `npm run test:db`: runs the migrations in a local Postgres and checks what visitors, customers and admins can do.
 - `npm run build`: type check and production build.
+
+## Hosting on Netlify with bhclothing.fashion
+
+The site is a static build (all data lives in Supabase), so Netlify's free plan hosts it. `netlify.toml` holds the
+build settings: `npm run build`, publish `dist`, Node 22. Every merge to `main` is published automatically.
+
+1. **Netlify:** sign up at app.netlify.com with GitHub → Add new project → Import an existing project → GitHub →
+   `MrCoffeeFunPlay/bh-clothing`, branch `main`. The build settings come from `netlify.toml` → Deploy.
+   Then Project configuration → Change project name → `bh-clothing` (address `bh-clothing.netlify.app`).
+2. **Domain in Netlify:** Domain management → Add a domain → `bhclothing.fashion` → keep the DNS at GoDaddy
+   (external DNS). Netlify makes `www.bhclothing.fashion` the main address and sends `bhclothing.fashion` to it.
+3. **GoDaddy → DNS for bhclothing.fashion:**
+   - `A` record, name `@`, value `75.2.60.5` (edit the existing `@` A record; keep only one; delete any `AAAA` on `@`).
+   - `CNAME` record, name `www`, value `bh-clothing.netlify.app`.
+   - Remove domain forwarding / parking if GoDaddy added it.
+4. **HTTPS:** Netlify → Domain management → HTTPS → Verify DNS configuration. The certificate is issued
+   automatically once the DNS has spread (minutes to a few hours).
+5. **Supabase → Authentication → URL Configuration:** Site URL `https://www.bhclothing.fashion`; Redirect URLs
+   `https://www.bhclothing.fashion/**`, `https://bhclothing.fashion/**`, `https://bh-clothing.netlify.app/**`.
+   (Sign-up confirmation links and Google sign-in return to these addresses.)
+6. **After the first Netlify publish:** run `supabase/migrations/20261030090000_loose_shorts_studio_images.sql`
+   (the Loose Shorts studio photos are then online).
+
+Netlify docs: https://docs.netlify.com/manage/domains/configure-domains/configure-external-dns/
