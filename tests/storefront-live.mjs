@@ -74,6 +74,14 @@ globalThis.fetch = async (url, init = {}) => {
     if (!user.confirmed) return json({ error_description: 'Email not confirmed' }, 400);
     return tokenAnswer(body.email);
   }
+  if (path === '/auth/v1/token?grant_type=id_token') {
+    // Google sign-in from the site: the token's nonce must be the SHA-256 of the one-time value sent with it.
+    const claims = JSON.parse(Buffer.from(body.id_token.split('.')[1], 'base64url').toString());
+    const hashed = (await import('node:crypto')).createHash('sha256').update(body.nonce).digest('hex');
+    if (body.provider !== 'google' || claims.nonce !== hashed) return json({ msg: 'Nonces mismatch' }, 400);
+    users[claims.email] ??= { password: null, admin: false, confirmed: true };
+    return tokenAnswer(claims.email);
+  }
   if (path === '/auth/v1/token?grant_type=refresh_token') { backend.expired.delete(tokenFor(body.refresh_token.slice(8))); return tokenAnswer(body.refresh_token.slice(8)); }
   if (path.startsWith('/auth/v1/signup')) {
     backend.signupRedirects.push(new URL(url).searchParams.get('redirect_to'));
@@ -590,6 +598,32 @@ assert.equal(savedBags['dana@gmail.com'].reduce((sum, line) => sum + line.quanti
 await click(btn('Sign out', document.querySelector('.account-dropdown')));
 assert.equal(bagCount(), '00', 'signed out: the member\'s bag is not shown');
 
+// 21. Google sign-in opened from BH's own site (Google's button); the regular link stays as a fallback.
+let gis = null;
+window.google = { accounts: { id: { initialize: options => { gis = options; }, renderButton: element => { element.innerHTML = '<div role="button">Continue with Google</div>'; } } } };
+clearBrowser();
+await visit('home');
+await click(document.querySelector('.account-menu > button')); await settle(150);
+assert.ok(gis, 'Google button set up'); assert.equal(gis.client_id, store.GOOGLE_CLIENT_ID);
+assert.equal(document.querySelector('.google-gis.waiting'), null); assert.equal(document.querySelector('.social-button.google'), null, 'the fallback link is replaced');
+const googleToken = claims => ['e30', Buffer.from(JSON.stringify(claims)).toString('base64url'), 'sig'].join('.');
+await act(async () => { gis.callback({ credential: googleToken({ email: 'gina@gmail.com', given_name: 'Gina', family_name: 'Levi', nonce: gis.nonce }) }); await new Promise(r => setTimeout(r, 300)); }); await settle(200);
+assert.match(accountMenuText(), /gina@gmail\.com/);
+assert.equal(profiles['gina@gmail.com'].first_name, 'Gina'); assert.equal(profiles['gina@gmail.com'].last_name, 'Levi');
+// Signing in with Google again doesn't overwrite a name the member changed.
+profiles['gina@gmail.com'].first_name = 'G';
+await click(btn('Sign out', document.querySelector('.account-dropdown')));
+await click(document.querySelector('.account-menu > button')); await settle(150);
+await act(async () => { gis.callback({ credential: googleToken({ email: 'gina@gmail.com', given_name: 'Gina', nonce: gis.nonce }) }); await new Promise(r => setTimeout(r, 300)); }); await settle(200);
+assert.equal(profiles['gina@gmail.com'].first_name, 'G');
+// A token made for another sign-in attempt (wrong nonce) is refused with a plain message.
+await click(btn('Sign out', document.querySelector('.account-dropdown')));
+await click(document.querySelector('.account-menu > button')); await settle(150);
+await act(async () => { gis.callback({ credential: googleToken({ email: 'gina@gmail.com', nonce: 'other' }) }); await new Promise(r => setTimeout(r, 300)); }); await settle(100);
+assert.ok(document.querySelector('.auth-message.error'), 'refused');
+assert.doesNotMatch(accountMenuText(), /gina@gmail\.com/);
+delete window.google;
+
 await act(() => root.unmount());
 rmSync('.live-dom', { recursive: true, force: true });
-console.log('PASS: bag saved in the account and in the browser, unpaid test orders recorded by the owner and shown to members (no payment or receipt from the website), BH updates choice, designed automation emails, automations, profile pictures, phone verification with the Verified tag, owner-managed member tags, real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');
+console.log('PASS: Google sign-in from BH's own site, bag saved in the account and in the browser, unpaid test orders recorded by the owner and shown to members (no payment or receipt from the website), BH updates choice, designed automation emails, automations, profile pictures, phone verification with the Verified tag, owner-managed member tags, real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');
