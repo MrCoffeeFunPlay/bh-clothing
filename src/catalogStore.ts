@@ -232,6 +232,28 @@ export function socialSignInUrl(provider: SocialProvider) {
   const back = typeof window !== "undefined" ? window.location.origin + window.location.pathname : "";
   return `${config.url}/auth/v1/authorize?provider=${provider}&redirect_to=${encodeURIComponent(back)}`;
 }
+// Google sign-in that opens from BH's own site (Google Identity Services), so Google's window shows BH's address
+// instead of the Supabase project address. The client ID is public (it is in every page that uses Google sign-in);
+// the client secret stays only in the Supabase dashboard.
+export const GOOGLE_CLIENT_ID = "10425245358-5aiasc22s41l7ufaqi8vl8qm82r92cmk.apps.googleusercontent.com";
+
+// A one-time value: Google puts its SHA-256 in the sign-in token, Supabase checks it against the original.
+export async function googleNonce() {
+  const raw = Array.from(crypto.getRandomValues(new Uint8Array(24)), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(raw));
+  return { raw, hashed: Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("") };
+}
+
+const tokenClaims = (token: string): { name?: string; given_name?: string; family_name?: string } => {
+  try { return JSON.parse(decodeURIComponent(escape(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))))); } catch { return {}; }
+};
+
+export async function signInWithGoogleToken(idToken: string, rawNonce: string, remember = true) {
+  const answer = await request<TokenAnswer>("/auth/v1/token?grant_type=id_token", { method: "POST", body: JSON.stringify({ provider: "google", id_token: idToken, nonce: rawNonce }) });
+  const claims = tokenClaims(idToken);
+  return { session: keep(toSession(answer, remember))!, firstName: claims.given_name ?? claims.name?.split(" ")[0] ?? "", lastName: claims.family_name ?? "" };
+}
+
 export const rememberSocialChoice = (remember: boolean) => { try { sessionStorage.setItem(REMEMBER_KEY, remember ? "1" : "0"); } catch { /* defaults to remember */ } };
 
 // The confirmation link from the sign-up email, and Google/Facebook/Apple sign-in, return here with the session in the

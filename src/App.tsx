@@ -7,10 +7,11 @@ import { CurrencySelector, ProductPrice, productAmount, formatMoney, useCurrency
 
 import { cartTotals, emptySale, type Sale } from "./pricing";
 import { bagItems, lineOf, mergeLines, readGuestBag, removeUnit, writeGuestBag } from "./bag";
-import { CatalogError, claimPhoneTags, currentSession, fetchMyBag, fetchMyTags, saveMyBag, type BagLine, type Tag, emptyProfile, enabledSocialProviders, rememberSocialChoice, sessionFromConfirmationLink, socialSignInUrl, type SocialProvider, fetchCatalog, fetchProfile, isCatalogAdmin, liveCatalogConfigured, productToPayload, resendSignupCode, saveProduct as saveLiveProduct, saveProfile, signIn, signOut, signUp, uploadProductImage, verifySignupCode, type AdminSession, type CategoryRow, type Profile, type UserSession } from "./catalogStore";
+import { CatalogError, signInWithGoogleToken, claimPhoneTags, currentSession, fetchMyBag, fetchMyTags, saveMyBag, type BagLine, type Tag, emptyProfile, enabledSocialProviders, rememberSocialChoice, sessionFromConfirmationLink, socialSignInUrl, type SocialProvider, fetchCatalog, fetchProfile, isCatalogAdmin, liveCatalogConfigured, productToPayload, resendSignupCode, saveProduct as saveLiveProduct, saveProfile, signIn, signOut, signUp, uploadProductImage, verifySignupCode, type AdminSession, type CategoryRow, type Profile, type UserSession } from "./catalogStore";
 import { SaleFields, StoreSalePanel, SaleAnnouncement, saleError } from "./Sales";
 import { AutomationsAdmin } from "./Automations";
 import { InstallApp } from "./InstallApp";
+import { GoogleButton } from "./GoogleButton";
 import { BUSINESS_EMAIL, LEGAL_UPDATED, privacySections, termsSections, type LegalSection } from "./legal";
 import { MyOrders, OrdersAdmin } from "./Orders";
 import { Avatar, AvatarEditor, PhoneVerify, TagList, TagsAdmin, initials } from "./Members";
@@ -159,11 +160,12 @@ export default function App() {
   }, []);
   const freshSession = async (force = false) => { const next = await currentSession(force); if (next) setSession(next); else await loadAccount(null); return next; };
   const leave = async () => { await signOut(session); await loadAccount(null); go("home"); };
-  const signedInWith = async (next: UserSession, details?: Partial<Profile>) => {
+  const signedInWith = async (next: UserSession, details?: Partial<Profile>, onlyEmpty = false) => {
     setAuthOpen(false);
     const filled = Object.fromEntries(Object.entries(details ?? {}).filter(([, value]) => value));
     if (Object.keys(filled).length) {
       const current = await fetchProfile(next).catch(() => null);
+      if (onlyEmpty && current) for (const key of Object.keys(filled) as (keyof Profile)[]) if (current[key]) delete filled[key];
       await saveProfile(next, { ...emptyProfile(), ...current, ...filled }).catch(() => undefined);
     }
     await loadAccount(next);
@@ -237,7 +239,7 @@ export default function App() {
     {chat && <AssistantV2 onClose={() => setChat(false)}/>}
     {cartOpen && <CartDrawer items={cart} remove={remove} onClose={() => setCartOpen(false)} go={go}/>}
     {linkNotice && <div className={linkNotice.ok ? "link-notice save-ok" : "link-notice save-fail"} role={linkNotice.ok ? "status" : "alert"}>{linkNotice.ok ? <Check size={17}/> : <X size={17}/>}<span>{linkNotice.text}</span><button className="icon" aria-label="Close" onClick={() => setLinkNotice(null)}><X size={16}/></button></div>}
-    {authOpen && <AuthModal live={live} onClose={() => setAuthOpen(false)} onSignedIn={(next, details) => void signedInWith(next, details)}/>}
+    {authOpen && <AuthModal live={live} onClose={() => setAuthOpen(false)} onSignedIn={(next, details, onlyEmpty) => void signedInWith(next, details, onlyEmpty)}/>}
     {!signedIn && <WelcomeOfferModal onJoin={() => setAuthOpen(true)}/>}
   </div>;
 }
@@ -586,7 +588,7 @@ function SocialMark({ provider }: { provider: SocialProvider }) {
   return <svg className="social-mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.37 12.8c-.02-2.2 1.8-3.26 1.88-3.31-1.03-1.5-2.62-1.7-3.18-1.73-1.35-.14-2.64.8-3.33.8-.69 0-1.74-.78-2.86-.76-1.47.02-2.83.86-3.59 2.17-1.53 2.66-.39 6.59 1.1 8.74.73 1.05 1.6 2.24 2.73 2.2 1.1-.05 1.51-.71 2.84-.71 1.32 0 1.7.71 2.86.69 1.18-.02 1.93-1.07 2.65-2.13.84-1.22 1.18-2.4 1.2-2.46-.03-.01-2.3-.88-2.32-3.5zM14.2 6.33c.6-.73 1.01-1.75.9-2.76-.87.04-1.92.58-2.54 1.31-.56.65-1.05 1.69-.92 2.68.97.08 1.96-.49 2.56-1.23z"/></svg>;
 }
 
-function AuthModal({ live, onClose, onSignedIn }: { live: boolean; onClose: () => void; onSignedIn: (session: UserSession, details?: Partial<Profile>) => void }) {
+function AuthModal({ live, onClose, onSignedIn }: { live: boolean; onClose: () => void; onSignedIn: (session: UserSession, details?: Partial<Profile>, onlyEmpty?: boolean) => void }) {
   const [mode, setMode] = useState<"login" | "create" | "verify">("login");
   const [email, setEmail] = useState("");
   const [remember, setRemember] = useState(true);
@@ -625,7 +627,8 @@ function AuthModal({ live, onClose, onSignedIn }: { live: boolean; onClose: () =
     {!live ? <><p className="eyebrow"><UserRound size={14}/> BH ACCOUNT</p><h2>Accounts are<br/><em>offline</em><span>.</span></h2><p>This preview isn't connected to the store database, so signing in isn't available here.</p></>
     : mode === "verify" ? <><p className="eyebrow"><BadgeCheck size={14}/> VERIFY EMAIL</p><h2>One last<br/><em>step</em><span>.</span></h2><p>We sent an email to <b>{email}</b>. Click the confirmation link in it, or enter the code if the email shows one. It can take a minute to arrive; check your spam folder too.</p>{messages}<form onSubmit={verify}><label>Confirmation code<input name="code" required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6,8}" maxLength={8} placeholder="123456"/></label><button className="glow-button full" disabled={busy}>{busy ? "Checking…" : "Verify and continue"} <ArrowRight size={16}/></button></form><button className="auth-toggle" disabled={busy || cooldown > 0} onClick={resend}>{cooldown > 0 ? `Send the email again in ${cooldown}s` : <>Didn't get it? <b>Send the email again</b></>}</button><button className="auth-toggle" onClick={() => { setMode("login"); setError(""); setInfo(""); }}>Back to log in</button></>
     : <><p className="eyebrow"><UserRound size={14}/> BH ACCOUNT</p><h2>{mode === "login" ? <>Welcome<br/>back<span>.</span></> : <>Create your<br/><em>BH</em><span>.</span></>}</h2><p>{mode === "login" ? "Sign in to reach your profile and BH benefits." : "Create an account to save your profile, reviews and birthday reward. We'll email you a code to confirm it's you."}</p>{messages}
-      {social.length > 0 && <><div className="social-buttons">{social.map((provider) => <a key={provider} className={`social-button ${provider}`} href={socialSignInUrl(provider)} onClick={() => rememberSocialChoice(remember)}><SocialMark provider={provider}/>Continue with {provider === "google" ? "Google" : provider === "facebook" ? "Facebook" : "Apple"}</a>)}</div><div className="auth-divider"><span>or with email</span></div></>}
+      {social.length > 0 && <><div className="social-buttons">{social.map((provider) => { const link = <a key={provider} className={`social-button ${provider}`} href={socialSignInUrl(provider)} onClick={() => rememberSocialChoice(remember)}><SocialMark provider={provider}/>Continue with {provider === "google" ? "Google" : provider === "facebook" ? "Facebook" : "Apple"}</a>;
+        return provider === "google" ? <GoogleButton key={provider} fallback={link} onError={setError} onToken={(idToken, nonce) => void run(async () => { const google = await signInWithGoogleToken(idToken, nonce, remember); onSignedIn(google.session, { first_name: google.firstName, last_name: google.lastName, ...(updates ? { marketing_opt_in: true } : {}) }, true); })}/> : link; })}</div><div className="auth-divider"><span>or with email</span></div></>}
       {mode === "login" ? <form onSubmit={login}><label>Email address<input name="email" required type="email" autoComplete="email" placeholder="you@email.com" defaultValue={email}/></label><label>Password<input name="password" required type="password" autoComplete="current-password" placeholder="Your password"/></label>{rememberBox}{updatesBox}<button className="glow-button full" disabled={busy}>{busy ? "Signing in…" : "Log in"} <ArrowRight size={16}/></button></form>
       : <form onSubmit={create}><label>Username<input name="username" required minLength={3} maxLength={40} placeholder="Your name for reviews"/></label><label>Email address<input name="email" required type="email" autoComplete="email" placeholder="you@email.com" defaultValue={email}/></label><label>Date of birth<input name="birthday" type="date" min="1900-01-01" max={today()}/></label><label>Password<input name="password" required type="password" minLength={8} autoComplete="new-password" placeholder="At least 8 characters"/></label><label>Confirm password<input name="confirm" required type="password" minLength={8} autoComplete="new-password" placeholder="Repeat password"/></label>{rememberBox}{updatesBox}<button className="glow-button full" disabled={busy}>{busy ? "Creating…" : "Create and verify email"} <ArrowRight size={16}/></button></form>}
       <button className="auth-toggle" onClick={() => { setMode(mode === "login" ? "create" : "login"); setError(""); setInfo(""); }}>{mode === "login" ? <>New to BH? <b>Create an account</b></> : <>Already have an account? <b>Log in</b></>}</button></>}
