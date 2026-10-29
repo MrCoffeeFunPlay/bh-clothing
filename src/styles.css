@@ -746,3 +746,9 @@ footer .footer-bottom .install-app { padding: 10px 18px; border-radius: 999px; }
 .login-redesign .login-form .remember-me, .login-redesign .login-form .updates-choice { grid-column: 1 / -1; margin: 2px 0; }
 .login-redesign .login-form .updates-choice { font-size: 10px; line-height: 1.45; text-transform: none; letter-spacing: .02em; }
 @media (min-width: 701px) { .login-redesign .login-brand { min-height: 0; } }
+
+/* Privacy policy and terms */
+.legal-text { margin-top: 28px; display: grid; gap: 26px; }
+.legal-text h2 { margin: 0 0 8px; font-size: 20px; letter-spacing: -.01em; }
+.legal-text p, .legal-text li { margin: 0 0 8px; color: #695644; font-size: 15px; line-height: 1.75; }
+.legal-text ul { margin: 0 0 8px; padding-left: 20px; }
