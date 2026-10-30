@@ -1,5 +1,5 @@
 import { FormEvent, MouseEvent as ReactMouseEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { Activity, ArrowRight, Tags as TagsIcon, Workflow, AtSign, BadgeCheck, BadgeDollarSign, BarChart3, Bell, CakeSlice, CalendarDays, Check, ChevronLeft, ChevronDown, CircleDollarSign, CircleHelp, ClipboardList, Coins, CreditCard, Crown, Download, FileText, Gem, Gift, Heart, Layers, LockKeyhole, LogOut, Mail, MapPin, Menu, MessageCircle, PackageCheck, Plus, ReceiptText, Search, Send, Settings, ShieldCheck, Shirt, ShoppingBag, Sparkles, Star, Swords, Ticket, Truck, UserPen, UserRound, Users, WalletCards, X, ZoomIn } from "lucide-react";
+import { Activity, ArrowRight, Tags as TagsIcon, Workflow, AtSign, BadgeCheck, BadgeDollarSign, BarChart3, Bell, CakeSlice, CalendarDays, Check, ChevronLeft, ChevronDown, CircleDollarSign, CircleHelp, ClipboardList, Coins, CreditCard, Crown, Download, FileText, Gem, Gift, Heart, Layers, LockKeyhole, LogOut, Mail, MapPin, MessageCircle, PackageCheck, Plus, ReceiptText, Search, Send, Settings, ShieldCheck, Shirt, ShoppingBag, Sparkles, Star, Swords, Ticket, Truck, UserPen, UserRound, Users, WalletCards, X, ZoomIn } from "lucide-react";
 import { categories, products, type Product } from "./catalog";
 import { WelcomeOfferModal } from "./WelcomeOfferModal";
 import { AssistantV2 } from "./AssistantV2";
@@ -10,7 +10,7 @@ import { bagItems, lineOf, mergeLines, readGuestBag, removeUnit, writeGuestBag }
 import { CatalogError, signInWithGoogleToken, claimPhoneTags, currentSession, fetchMyBag, fetchMyTags, saveMyBag, type BagLine, type Tag, emptyProfile, enabledSocialProviders, rememberSocialChoice, sessionFromConfirmationLink, socialSignInUrl, type SocialProvider, fetchCatalog, fetchProfile, isCatalogAdmin, liveCatalogConfigured, productToPayload, resendSignupCode, saveProduct as saveLiveProduct, saveProfile, signIn, signOut, signUp, uploadProductImage, verifySignupCode, type AdminSession, type CategoryRow, type Profile, type UserSession } from "./catalogStore";
 import { SaleFields, StoreSalePanel, SaleAnnouncement, saleError } from "./Sales";
 import { AutomationsAdmin } from "./Automations";
-import { InstallApp } from "./InstallApp";
+import { InstallApp, InstallNudge } from "./InstallApp";
 import { GoogleButton } from "./GoogleButton";
 import { BUSINESS_EMAIL, LEGAL_UPDATED, privacySections, termsSections, type LegalSection } from "./legal";
 import { MyOrders, OrdersAdmin } from "./Orders";
@@ -58,6 +58,12 @@ function Card({ product, open, add }: { product: Product; open: (product: Produc
 export default function App() {
   const [view, setView] = useState<View>("home");
   const [menu, setMenu] = useState(false);
+  useEffect(() => { // the phone menu covers the page: keep the page still behind it, and close it with Escape
+    if (!menu) return;
+    const close = (event: KeyboardEvent) => { if (event.key === "Escape") setMenu(false); };
+    document.body.classList.add("menu-open"); window.addEventListener("keydown", close);
+    return () => { document.body.classList.remove("menu-open"); window.removeEventListener("keydown", close); };
+  }, [menu]);
   const [search, setSearch] = useState(false);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
@@ -207,12 +213,21 @@ export default function App() {
   if (loading || catalogState.status === "loading") return <div className="bh-loader"><span className="bh-loader-mark">BH</span></div>;
   return <div className="app">
     <div className="announcement"><SaleAnnouncement/></div>
-    <header><button className="icon menu" onClick={() => setMenu(!menu)}>{menu ? <X/> : <Menu/>}</button><button className="wordmark" onClick={() => go("home")}>BH <span>Clothing</span></button>
+    <header><button className={menu ? "icon menu open" : "icon menu"} aria-label={menu ? "Close menu" : "Open menu"} aria-expanded={menu} onClick={() => setMenu(!menu)}><i/><i/><i/></button><button className="wordmark" onClick={() => go("home")}>BH <span>Clothing</span></button>
+      {menu && <div className="nav-scrim" onClick={() => setMenu(false)}/>}
       <nav className={menu ? "open" : ""}>
+        <div className="nav-drawer-head"><button className="wordmark" onClick={() => go("home")}>BH <span>Clothing</span></button><button className="icon" aria-label="Close menu" onClick={() => setMenu(false)}><X/></button></div>
         <button className={view === "home" ? "active" : ""} onClick={() => go("home")}>Home</button>
         <div className="nav-menu" {...hoverMenu}><button className={view === "store" || view === "collection" ? "active" : ""} onClick={() => go("store")}>Store <ChevronDown size={13}/></button><div className="nav-dropdown">{["All", "Tees", "Hoodies", "Pants", "Accessories", "Anime"].map((item) => <button key={item} onClick={() => { setCategory(item); go(item === "All" ? "store" : "collection"); }}>{item === "All" ? "Shop all" : item}</button>)}</div></div>
         <button onClick={() => { setCategory("All"); go("collection"); }}>New Drop</button>
         <div className="nav-menu" {...hoverMenu}><button className={view === "club" ? "active" : ""} onClick={() => go("club")}>BH Club <ChevronDown size={13}/></button><div className="nav-dropdown"><button onClick={() => { setClubTab("plans"); go("club"); }}>BH Plans</button><button onClick={() => { setClubTab("points"); go("club"); }}>BH Points</button><button onClick={() => { setClubTab("gift"); go("club"); }}>Gift cards</button></div></div>
+        <div className="nav-drawer-foot">
+          <button onClick={() => { if (!signedIn) { setMenu(false); setAuthOpen(true); return; } setAccountSection("profile"); go("account"); }}><UserRound size={18}/> {signedIn ? "My account" : "Sign in / Join"}</button>
+          {signedIn && <button onClick={() => { setAccountSection("orders"); go("account"); }}><ReceiptText size={18}/> Orders</button>}
+          <label><span>Currency</span><CurrencySelector/></label>
+          <InstallApp/>
+          <a href={"mailto:" + contactEmail}><Mail size={16}/> {contactEmail}</a>
+        </div>
       </nav>
       <div className="actions"><CurrencySelector/><button className="icon" onClick={() => setSearch(!search)}>{search ? <X/> : <Search/>}</button><div className="account-menu" {...hoverMenu}><button className={profile?.avatar_url ? "icon has-avatar" : "icon"} aria-label="My account" onClick={() => { if (!signedIn) { setAuthOpen(true); return; } setAccountSection("profile"); go("account"); }}>{signedIn && profile?.avatar_url ? <Avatar url={profile.avatar_url} name={accountName} className="avatar-header"/> : <UserRound/>}</button>{signedIn && <div className="account-dropdown"><div><Avatar url={profile?.avatar_url} name={accountName} className="avatar-mini"/><p><b>{accountName}</b><small>{session?.email}</small></p></div><button onClick={() => { setAccountSection("profile"); go("account"); }}><UserPen/> My profile</button><button onClick={() => { setAccountSection("orders"); go("account"); }}><ReceiptText/> Orders & shipments</button><button onClick={() => { setAccountSection("wallet"); go("account"); }}><WalletCards/> Wallet & payments</button><button onClick={() => { setAccountSection("settings"); go("account"); }}><Settings/> Account settings</button>{isOwner && <button onClick={() => go("admin")}><LockKeyhole/> Owner area</button>}<button className="signout" onClick={() => void leave()}><LogOut/> Sign out</button></div>}</div><button className="bag" onClick={() => setCartOpen(true)}><ShoppingBag/><span>{String(cart.length).padStart(2, "0")}</span></button></div>
     </header>
@@ -237,6 +252,7 @@ export default function App() {
     <footer><div className="footer-top"><button className="wordmark" onClick={() => go("home")}>BH <span>Clothing</span></button><p>Wear your story. Your way.</p><div className="social-links"><a href={"mailto:" + contactEmail} aria-label="Email BH"><Mail/> <span>Email</span></a><a href="https://wa.me/" target="_blank" rel="noreferrer" aria-label="WhatsApp BH"><MessageCircle/> <span>WhatsApp</span></a><a href="https://instagram.com/" target="_blank" rel="noreferrer" aria-label="Instagram BH"><AtSign/> <span>Instagram</span></a></div></div><div className="footer-bottom"><span>© 2026 BH Clothing</span><InstallApp/><button onClick={() => go("reviews")}>Reviews</button><button onClick={() => openInfo("about")}>About us</button><button onClick={() => openInfo("faq")}>FAQ</button><button onClick={() => openInfo("privacy")}>Privacy</button><button onClick={() => openInfo("terms")}>Terms & conditions</button></div></footer>
     <button className="chat-trigger" onClick={() => setChat(!chat)}>{chat ? <X/> : <MessageCircle/>}</button>
     {chat && <AssistantV2 onClose={() => setChat(false)}/>}
+    <InstallNudge/>
     {cartOpen && <CartDrawer items={cart} remove={remove} onClose={() => setCartOpen(false)} go={go}/>}
     {linkNotice && <div className={linkNotice.ok ? "link-notice save-ok" : "link-notice save-fail"} role={linkNotice.ok ? "status" : "alert"}>{linkNotice.ok ? <Check size={17}/> : <X size={17}/>}<span>{linkNotice.text}</span><button className="icon" aria-label="Close" onClick={() => setLinkNotice(null)}><X size={16}/></button></div>}
     {authOpen && <AuthModal live={live} onClose={() => setAuthOpen(false)} onSignedIn={(next, details, onlyEmpty) => void signedInWith(next, details, onlyEmpty)}/>}
