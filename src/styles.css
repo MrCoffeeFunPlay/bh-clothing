@@ -865,3 +865,30 @@ button, a { touch-action: manipulation; }
   .locked-visual .locked-label, .main-image .locked-visual .locked-label { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(255, 255, 255, .18); }
 }
 @media (prefers-reduced-motion: reduce) { .page-enter, header nav, header nav > *, .nav-scrim { animation: none !important; transition: none !important; } }
+
+/* Sign-in / sign-up window on computers: wider, larger text, fields side by side so it all fits without cutting;
+   if a screen is very short the form scrolls inside the window (never the page behind it) */
+html { scrollbar-gutter: stable; }
+.login-redesign .login-form { overscroll-behavior: contain; }
+@media (min-width: 901px) {
+  .login-redesign { width: min(1000px, calc(100vw - 48px)); grid-template-columns: 300px 1fr; max-height: calc(100dvh - 32px); }
+  .login-redesign .login-form { padding: 36px 52px 32px; }
+  .login-redesign .login-form h2 { font-size: clamp(36px, 3.6vw, 48px); }
+  .login-redesign .login-form > p:not(.eyebrow) { font-size: 14px; line-height: 1.6; }
+  .login-redesign .login-form label { font-size: 11px; }
+  .login-redesign .login-form input { padding: 12px 15px; font-size: 14px; }
+  .login-redesign .login-form .remember-me, .login-redesign .login-form .updates-choice { font-size: 11px; }
+  .login-redesign .login-form .social-buttons { margin-bottom: 4px; }
+  /* create account: Username | Email, Password | Confirm, Date of birth */
+  .login-redesign .login-form form:has(label:nth-child(5)) { grid-template-columns: 1fr 1fr; column-gap: 14px; row-gap: 6px;
+    grid-template-areas: "user email" "pass confirm" "birth ." "remember remember" "updates updates" "submit submit"; }
+  .login-redesign .login-form form:has(label:nth-child(5)) > label:nth-child(1) { grid-area: user; }
+  .login-redesign .login-form form:has(label:nth-child(5)) > label:nth-child(2) { grid-area: email; }
+  .login-redesign .login-form form:has(label:nth-child(5)) > label:nth-child(3) { grid-area: birth; }
+  .login-redesign .login-form form:has(label:nth-child(5)) > label:nth-child(4) { grid-area: pass; }
+  .login-redesign .login-form form:has(label:nth-child(5)) > label:nth-child(5) { grid-area: confirm; }
+  .login-redesign .login-form form:has(label:nth-child(5)) > .remember-me { grid-area: remember; }
+  .login-redesign .login-form form:has(label:nth-child(5)) > .updates-choice { grid-area: updates; }
+  .login-redesign .login-form form:has(label:nth-child(5)) > button { grid-area: submit; margin-top: 6px; }
+}
+@media (max-width: 900px) { .login-redesign .auth-close { color: #fff8ef; } }
