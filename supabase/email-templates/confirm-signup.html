@@ -1,0 +1,57 @@
+<!--
+  BH Clothing: "Confirm sign up" email (Supabase → Authentication → Emails → Templates → Confirm sign up).
+  Subject: Your BH Clothing code
+  Sends the code ({{ .Token }}) that the member types into the sign-up window, not a link.
+  Built with tables and inline styles so it looks the same in Gmail, Outlook and phone mail apps.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Your BH Clothing code</title>
+</head>
+<body style="margin:0;padding:0;background:#f4efe8;">
+<div style="display:none;max-height:0;overflow:hidden;">Your code to finish creating your BH account: {{ .Token }}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4efe8;">
+  <tr>
+    <td align="center" style="padding:36px 16px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;background:#ffffff;border-radius:20px;">
+        <tr>
+          <td align="center" style="padding:34px 32px 8px;">
+            <a href="https://bhclothing.fashion" style="text-decoration:none;"><img src="https://bhclothing.fashion/email/bh-clothing-logo.png" width="222" height="48" alt="BH Clothing" style="display:block;border:0;width:222px;height:48px;"></a>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:22px 40px 0;font-family:Arial,Helvetica,sans-serif;color:#332920;">
+            <h1 style="margin:0 0 12px;font-size:24px;line-height:1.25;font-weight:700;text-align:center;">Confirm your email</h1>
+            <p style="margin:0;font-size:15px;line-height:1.6;color:#6b5a4c;text-align:center;">Welcome to BH Clothing. Enter this code in the sign-up window to finish creating your account.</p>
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding:26px 40px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="padding:16px 30px;background:#f6efe6;border:1px solid #eadccd;border-radius:14px;font-family:'Courier New',Courier,monospace;font-size:32px;line-height:1;font-weight:700;letter-spacing:8px;color:#332920;">{{ .Token }}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 40px 30px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;color:#8b7a6c;text-align:center;">
+            The code works for a short time only. If you didn't try to join BH Clothing, you can ignore this email and nothing will change.
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:18px 40px 26px;border-top:1px solid #f0e6da;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#a08f80;text-align:center;">
+            BH Clothing · Premium Streetwear<br>
+            <a href="https://bhclothing.fashion" style="color:#8a5a3c;text-decoration:none;">bhclothing.fashion</a> · <a href="mailto:support@bhclothing.fashion" style="color:#8a5a3c;text-decoration:none;">support@bhclothing.fashion</a>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>
