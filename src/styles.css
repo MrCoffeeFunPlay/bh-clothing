@@ -1,6 +1,6 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Sora:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Sora:wght@400;500;600;700&family=Rubik:wght@400;500;600;700&display=swap");
 
-:root { color: #332920; background: #faf7f1; font-family: "DM Sans", sans-serif; font-synthesis: none; --ink:#332920; --paper:#faf7f1; --bone:#f1e7d8; --line:#dfd0bf; --muted:#847364; --wine:#956b48; --wine-dark:#6e4a31; --serif:"Sora",sans-serif; }
+:root { color: #332920; background: #faf7f1; font-family: "DM Sans", "Rubik", sans-serif; font-synthesis: none; --ink:#332920; --paper:#faf7f1; --bone:#f1e7d8; --line:#dfd0bf; --muted:#847364; --wine:#956b48; --wine-dark:#6e4a31; --serif:"Sora","Rubik",sans-serif; }
 * { box-sizing: border-box; }
 html { direction: ltr; scroll-behavior: smooth; }
 body { margin: 0; min-width: 320px; background: var(--paper); }
@@ -986,3 +986,20 @@ html { scrollbar-gutter: stable; }
 .faq-form textarea { width: 100%; padding: 12px 14px; border: 1px solid #e6d6c2; border-radius: 13px; font: inherit; resize: vertical; }
 @media (max-width: 600px) { .activity-row { grid-template-columns: 34px 1fr; } .activity-row time { grid-column: 2; } .faq-admin-list article { flex-direction: column; } }
 .coupon-editor { align-items: start; }
+.link-notice { overflow: hidden; animation: notice-in .3s cubic-bezier(.2, .8, .2, 1); }
+.link-notice-timer { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: currentColor; opacity: .35; transform-origin: left; animation: notice-timer linear forwards; }
+@keyframes notice-timer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@keyframes notice-in { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translateX(-50%); } }
+
+/* Hebrew (optional): the layout stays exactly the same; each line of text simply reads right-to-left when it is Hebrew */
+html.lang-he :is(p, h1, h2, h3, h4, span, b, strong, em, small, label, button, a, li, summary, dt, dd, td, th, strong, i, time, select, option) { unicode-bidi: plaintext; }
+/* Hebrew letters come from Rubik (loaded only when Hebrew is on the page); English keeps DM Sans and Sora */
+
+/* Account settings → Language */
+.language-choice { display: inline-flex; gap: 4px; margin: 8px 0 10px; padding: 4px; border-radius: 999px; background: #f1e7d8; }
+.language-choice button { padding: 8px 18px; border: 0; border-radius: 999px; background: transparent; color: #5b4636; font-size: 13px; font-weight: 700; cursor: pointer; }
+.language-choice button.active { background: #fff; color: #2f2620; box-shadow: 0 4px 12px rgba(78, 49, 29, .12); }
+.language-note { margin: 0; color: #8b7a6c; font-size: 12.5px; line-height: 1.6; }
+.language-note span { display: block; margin-top: 4px; }
+.info-page .language-note { margin: 0 0 18px; padding: 12px 16px; border-radius: 14px; background: #f6efe6; }
+html.lang-he :is(h1, h2)[dir="rtl"] * { unicode-bidi: normal; }
