@@ -352,7 +352,7 @@ await set(label('Date of birth'), '1995-04-02');
 await submit(document.querySelector('.profile-form'));
 assert.match(document.querySelector('.save-banner.save-ok').textContent, /Your changes have been saved/);
 assert.ok(scrolls.some(options => options?.top === 0), 'page scrolls to the top');
-assert.deepEqual(profiles['customer@example.com'], { first_name: 'Noa', last_name: 'Levi', username: '', birthday: '1995-04-02', country: '', avatar_url: '', marketing_opt_in: false });
+assert.deepEqual(profiles['customer@example.com'], { first_name: 'Noa', last_name: 'Levi', username: '', birthday: '1995-04-02', country: '', avatar_url: '', marketing_opt_in: false, language: 'en' });
 await visit('account');
 assert.equal(label('First name').value, 'Noa', 'details are still there after a refresh');
 assert.match(document.querySelector('.account-clean-hero').textContent, /Welcome back.*Noa/s);
@@ -389,8 +389,10 @@ await set(label('Confirmation code', modal()), '482915');
 await submit(modal().querySelector('form'));
 assert.equal(modal(), null);
 assert.match(accountMenuText(), /new@example\.com/);
-assert.deepEqual(profiles['new@example.com'], { first_name: '', last_name: '', username: 'shira', birthday: null, country: '', avatar_url: '', marketing_opt_in: true });
+assert.deepEqual(profiles['new@example.com'], { first_name: '', last_name: '', username: 'shira', birthday: null, country: '', avatar_url: '', marketing_opt_in: true, language: 'en' });
 assert.match(document.querySelector('.link-notice.save-ok').textContent, /Your email is confirmed and you're signed in/, 'green message after the code too');
+await settle(5300);
+assert.equal(document.querySelector('.link-notice'), null, 'the green message closes by itself after a few seconds');
 await click(btn('Sign out', document.querySelector('.account-dropdown')));
 assert.equal(backend.signupRedirects[0], 'http://localhost/', 'the confirmation link brings people back to the site');
 // An unconfirmed account cannot log in until the code is entered.
@@ -424,7 +426,7 @@ clearBrowser();
 await visit(undefined, '#access_token=token:dana@gmail.com&refresh_token=refresh:dana@gmail.com&expires_in=3600&provider_token=x&token_type=bearer');
 assert.match(document.querySelector('.link-notice.save-ok').textContent, /You're signed in/);
 assert.match(accountMenuText(), /Dana Cohen/);
-assert.deepEqual(profiles['dana@gmail.com'], { first_name: 'Dana', last_name: 'Cohen', username: '', birthday: null, country: '', avatar_url: '', marketing_opt_in: false });
+assert.deepEqual(profiles['dana@gmail.com'], { first_name: 'Dana', last_name: 'Cohen', username: '', birthday: null, country: '', avatar_url: '', marketing_opt_in: false, language: 'en' });
 
 // 13. Impossible dates are explained in plain words and never sent to the database.
 const before13 = structuredClone(profiles['dana@gmail.com']);
@@ -692,6 +694,26 @@ assert.equal(faqDb.at(-1).question, 'How do sizes fit?'); assert.equal(faqDb.at(
 assert.equal(document.querySelectorAll('.faq-admin-list article').length, 2);
 await assert.rejects(store.saveCoupon({ code: 'FREE', kind: 'percent', amount: 100, currency: 'ILS', active: true, starts_at: null, expires_at: null, max_uses: null, per_customer_limit: null, note: '' }, 'token:dana@gmail.com'), /permission|security/);
 
+// 23. Hebrew (optional, from Account settings): the page's text turns Hebrew in the same layout, the choice is saved
+// with the account, and English comes back exactly as it was.
+clearBrowser();
+await visit('account');
+await signIn('dana@gmail.com', 'dana-pass'); await settle(200);
+await click(btn('Account settings', document.querySelector('.account-dashboard aside')));
+const settingsText = () => document.querySelector('.account-panel').textContent;
+assert.match(settingsText(), /Stay in control.*Language/s);
+await click([...document.querySelectorAll('.language-choice button')].find(b => b.textContent === 'עברית')); await settle(200);
+assert.equal(document.documentElement.lang, 'he');
+assert.match(settingsText(), /השליטה אצלך.*שפה/s, 'translated');
+assert.match(document.querySelector('header nav').textContent, /בית.*חנות/s);
+assert.match(settingsText(), /English is BH's main language.*אנגלית היא השפה הראשית/s, 'the note says Hebrew may have mistakes, in both languages');
+assert.equal(profiles['dana@gmail.com'].language, 'he', 'saved with the account');
+assert.equal(localStorage.getItem('bh-language'), 'he');
+await click([...document.querySelectorAll('.language-choice button')].find(b => b.textContent === 'English')); await settle(200);
+assert.equal(document.documentElement.lang, 'en');
+assert.match(settingsText(), /Stay in control/); assert.doesNotMatch(document.body.textContent, /השליטה אצלך/);
+assert.equal(profiles['dana@gmail.com'].language, 'en');
+
 await act(() => root.unmount());
 rmSync('.live-dom', { recursive: true, force: true });
-console.log('PASS: badges page, activity log, coupons with limits, editable FAQ, Google sign-in from BH\'s own site, bag saved in the account and in the browser, unpaid test orders recorded by the owner and shown to members (no payment or receipt from the website), BH updates choice, designed automation emails, automations, profile pictures, phone verification with the Verified tag, owner-managed member tags, real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');
+console.log('PASS: Hebrew option, badges page, activity log, coupons with limits, editable FAQ, Google sign-in from BH\'s own site, bag saved in the account and in the browser, unpaid test orders recorded by the owner and shown to members (no payment or receipt from the website), BH updates choice, designed automation emails, automations, profile pictures, phone verification with the Verified tag, owner-managed member tags, real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');

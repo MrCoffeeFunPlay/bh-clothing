@@ -309,9 +309,9 @@ export const isCatalogAdmin = (session: UserSession) =>
 // ---------------------------------------------------------------------------------------------------------------
 // Customer profile (public.profiles): each user reads and saves only their own row.
 // ---------------------------------------------------------------------------------------------------------------
-export type Profile = { first_name: string; last_name: string; username: string; birthday: string | null; country: string; avatar_url: string; marketing_opt_in: boolean };
-export const emptyProfile = (): Profile => ({ first_name: "", last_name: "", username: "", birthday: null, country: "", avatar_url: "", marketing_opt_in: false });
-const PROFILE_COLUMNS = "first_name,last_name,username,birthday,country,avatar_url,marketing_opt_in";
+export type Profile = { first_name: string; last_name: string; username: string; birthday: string | null; country: string; avatar_url: string; marketing_opt_in: boolean; language: "en" | "he" };
+export const emptyProfile = (): Profile => ({ first_name: "", last_name: "", username: "", birthday: null, country: "", avatar_url: "", marketing_opt_in: false, language: "en" });
+const PROFILE_COLUMNS = "first_name,last_name,username,birthday,country,avatar_url,marketing_opt_in,language";
 
 export async function fetchProfile(session: UserSession): Promise<Profile | null> {
   const rows = await request<Profile[]>(`/rest/v1/profiles?id=eq.${encodeURIComponent(session.userId)}&select=${PROFILE_COLUMNS}`, {}, session.accessToken);
