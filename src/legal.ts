@@ -1,7 +1,7 @@
 // The privacy policy and terms of use, written to match what the site actually does today. They are a plain-language
 // starting point, not legal advice: have them reviewed by a professional before orders open.
-export const LEGAL_UPDATED = "29 October 2026";
-export const BUSINESS_EMAIL = "benharclothing@gmail.com";
+export const LEGAL_UPDATED = "1 November 2026";
+export const BUSINESS_EMAIL = "support@bhclothing.fashion";
 
 export type LegalSection = { heading: string; paragraphs?: string[]; points?: string[] };
 
@@ -27,6 +27,7 @@ export const privacySections: LegalSection[] = [
   { heading: "Who handles it for us", points: [
     "Supabase: our database, sign-in and image storage.",
     "Netlify: hosts the website.",
+    "Microsoft 365 (through GoDaddy): our business email, so it keeps the messages you send us.",
     "Google: only if you sign in with Google. Our site's fonts are also loaded from Google Fonts.",
     "An SMS service: only to send your phone verification code, once phone verification is switched on.",
   ], paragraphs: ["We don't sell your details or share them for advertising, and the site has no advertising or tracking scripts."] },
