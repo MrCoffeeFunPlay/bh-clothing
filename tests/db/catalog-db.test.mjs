@@ -356,3 +356,64 @@ test('Loose Shorts use the studio photos, and every one of them exists in the si
     assert.ok(existsSync('public' + front_image), `${front_image} is in public/`);
   }
 });
+
+test('the activity log records changes with old → new values, and only admins can read it (nobody can write it)', async () => {
+  await as('admin', async () => {
+    const before = (await rows(`select count(*)::int as n from public.activity_log where category = 'catalog'`))[0].n;
+    await db.query(`select public.admin_save_product($1)`, [tee({ weight_prices: [{ weight: '220g', price_ils: 130, price_usd: 39.99, sale_price_ils: null, sale_price_usd: 35.99, colours: ['Black'] }] })]);
+    const entry = (await rows(`select action, summary, actor_email from public.activity_log where category = 'catalog' order by id desc limit 1`))[0];
+    assert.equal(entry.action, 'Product changed');
+    assert.match(entry.summary, /^Fallen Sword: .*220g price ₪\d+\.\d\d → ₪130\.00.*220g sale price ₪\d+\.\d\d → none/);
+    assert.equal(entry.actor_email, 'owner@example.com', 'who made the change');
+    await db.query(`select public.admin_save_product($1)`, [tee({ weight_prices: [{ weight: '220g', price_ils: 130, price_usd: 39.99, sale_price_ils: null, sale_price_usd: 35.99, colours: ['Black'] }] })]);
+    assert.equal((await rows(`select count(*)::int as n from public.activity_log where category = 'catalog'`))[0].n, before + 1, 'saving with no changes adds nothing');
+    assert.ok((await rows(`select count(*)::int as n from public.activity_log where category = 'papers'`))[0].n >= 1, 'papers are listed');
+    await assert.rejects(db.query(`insert into public.activity_log (category, action, summary) values ('orders', 'x', 'y')`), /permission denied/);
+    await assert.rejects(db.query(`select public.write_activity('orders', 'x', 'y')`), /permission denied/);
+  });
+  await as('customer', async () => {
+    assert.equal((await rows(`select count(*)::int as n from public.activity_log`))[0].n, 0, 'customers see nothing');
+    await assert.rejects(db.query(`select public.record_catalog_change(1, 'x', 'y')`), /not authorised/);
+  });
+  // Sign-ins and new accounts come from the sign-in service itself.
+  await db.query(`update auth.users set last_sign_in_at = now() where id = '${CUSTOMER}'`);
+  assert.equal((await rows(`select summary from public.activity_log where category = 'sign_ins' order by id desc limit 1`))[0].summary, 'customer@example.com signed in');
+});
+
+test('coupons live in the database with dates and limits; only admins manage them', async () => {
+  await as('admin', async () => {
+    assert.deepEqual((await rows(`select code, per_customer_limit from public.coupons`)), [{ code: 'WELCOME10', per_customer_limit: 1 }]);
+    await db.query(`insert into public.coupons (code, kind, amount, max_uses, expires_at) values ('BH50', 'percent', 15, 50, now() + interval '30 days')`);
+    await assert.rejects(db.query(`insert into public.coupons (code, kind, amount) values ('BIG', 'percent', 120)`), /check constraint/);
+    await assert.rejects(db.query(`insert into public.coupons (code, kind, amount) values ('bh more', 'fixed', 20)`), /check constraint/, 'codes are capitals, numbers, - or _');
+    await db.query(`update public.coupons set active = false where code = 'BH50'`);
+    assert.deepEqual((await rows(`select summary from public.activity_log where category = 'coupons' order by id`)).map(r => r.summary), ['BH50 · 15% off · first 50 uses · ends ' + (await rows(`select to_char((now() + interval '30 days') at time zone 'Asia/Jerusalem', 'DD Mon YYYY') as d`))[0].d, 'BH50: paused']);
+  });
+  await as('customer', async () => {
+    assert.equal((await rows(`select count(*)::int as n from public.coupons`))[0].n, 0, 'customers cannot list coupons');
+    await assert.rejects(db.query(`insert into public.coupons (code, kind, amount) values ('FREE', 'percent', 100)`), /row-level security/);
+  });
+});
+
+test('FAQ: everyone reads shown questions; only admins add, edit or hide them', async () => {
+  await as('visitor', async () => { assert.equal((await rows(`select count(*)::int as n from public.faq_items`))[0].n, 3); });
+  await as('admin', async () => {
+    await db.query(`insert into public.faq_items (question, answer, sort_order) values ('How do sizes fit?', 'Oversized: take your usual size.', 40)`);
+    await db.query(`update public.faq_items set active = false where question = 'Can I return something?'`);
+    assert.equal((await rows(`select count(*)::int as n from public.faq_items`))[0].n, 4, 'admins also see hidden ones');
+  });
+  await as('visitor', async () => {
+    assert.deepEqual((await rows(`select question from public.faq_items order by sort_order`)).map(r => r.question), ['Where do you ship?', 'How do BH Points work?', 'How do sizes fit?']);
+    await assert.rejects(db.query(`insert into public.faq_items (question, answer) values ('Spam?', 'x')`), /permission denied/);
+  });
+  await as('customer', async () => { await assert.rejects(db.query(`insert into public.faq_items (question, answer) values ('Spam?', 'x')`), /row-level security/); });
+  assert.deepEqual((await rows(`select action from public.activity_log where category = 'content' order by id`)).map(r => r.action), ['FAQ question added', 'FAQ question hidden']);
+});
+
+test('members can choose English or Hebrew, and every tag says how to earn it', async () => {
+  assert.equal((await rows(`select how_to_earn from public.tags where rule = 'phone_verified'`))[0].how_to_earn, 'Verify your phone number in Account settings.');
+  await as('customer', async () => {
+    await db.query(`insert into public.profiles (id, language) values ('${CUSTOMER}', 'he') on conflict (id) do update set language = 'he'`);
+    await assert.rejects(db.query(`update public.profiles set language = 'fr' where id = '${CUSTOMER}'`), /check constraint/);
+  });
+});

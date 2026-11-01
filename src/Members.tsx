@@ -1,8 +1,8 @@
 // Member identity: profile pictures, tags (badges under a member's name), phone verification, and the owner's tag tools.
 import { type ChangeEvent, type FormEvent, useEffect, useState } from "react";
-import { BadgeCheck, Check, Crown, Flame, Gem, Heart, Pencil, Plus, Search, ShieldCheck, Smartphone, Sparkles, Star, Tags, Trash2, Trophy, X, Zap } from "lucide-react";
+import { BadgeCheck, Check, Crown, Flame, Gem, Heart, Lock, Pencil, Plus, Search, ShieldCheck, Smartphone, Sparkles, Star, Tags, Trash2, Trophy, X, Zap } from "lucide-react";
 import {
-  confirmPhoneCode, deleteTag, fetchMyTags, fetchProfile, fetchTags, findMembers, normalisePhone, phoneStatus, saveProfile, saveTag, sendPhoneCode,
+  confirmPhoneCode, deleteTag, fetchMyBadges, fetchMyTags, fetchProfile, fetchTags, findMembers, normalisePhone, phoneStatus, saveProfile, saveTag, sendPhoneCode,
   setMemberTag, tagIcons, uploadAvatar, type Member, type Profile, type Tag, type TagDraft, type TagIcon, type UserSession,
 } from "./catalogStore";
 
@@ -19,7 +19,7 @@ export function Avatar({ url, name, className = "" }: { url?: string; name: stri
 const icons: Record<TagIcon, typeof BadgeCheck> = {
   "badge-check": BadgeCheck, "shield-check": ShieldCheck, crown: Crown, sparkles: Sparkles, gem: Gem, star: Star, heart: Heart, flame: Flame, zap: Zap, trophy: Trophy,
 };
-const ownerTag: Tag = { id: 0, name: "BH Owner", icon: "badge-check", colour: "#8a5a3c", description: "Runs BH Clothing.", rule: "manual", sort_order: -1 };
+const ownerTag: Tag = { id: 0, name: "BH Owner", icon: "badge-check", colour: "#8a5a3c", description: "Runs BH Clothing.", how_to_earn: "", rule: "manual", sort_order: -1 };
 
 export function TagChip({ tag }: { tag: Pick<Tag, "name" | "icon" | "colour" | "description"> }) {
   const Icon = icons[tag.icon] ?? BadgeCheck;
@@ -125,7 +125,7 @@ export function PhoneVerify({ freshSession, onVerified, onMessage }: { freshSess
   </div></article>;
 }
 
-const blankTag = (): TagDraft => ({ name: "", icon: "badge-check", colour: "#8a5a3c", description: "", rule: "manual", sort_order: 10 });
+const blankTag = (): TagDraft => ({ name: "", icon: "badge-check", colour: "#8a5a3c", description: "", how_to_earn: "", rule: "manual", sort_order: 10 });
 
 // Owner area → Member tags: create, edit and delete tags, and give them to members.
 export function TagsAdmin({ freshSession }: { freshSession?: Fresh }) {
@@ -167,6 +167,7 @@ export function TagsAdmin({ freshSession }: { freshSession?: Fresh }) {
       <label>Colour<input type="color" value={draft.colour} onChange={(event) => setDraft({ ...draft, colour: event.target.value })}/></label>
       <label>Who gets it<select value={draft.rule} onChange={(event) => setDraft({ ...draft, rule: event.target.value as Tag["rule"] })}><option value="manual">I give it by hand</option><option value="phone_verified">Everyone who verifies their phone</option></select></label>
       <label className="wide">Description (shown when hovering the tag)<input maxLength={160} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })}/></label>
+      <label className="wide">How to earn it (shown on members' Badges page)<input maxLength={300} value={draft.how_to_earn} onChange={(event) => setDraft({ ...draft, how_to_earn: event.target.value })} placeholder="e.g. Verify your phone number in Account settings."/></label>
       <div className="wide tag-preview">Preview: <TagChip tag={{ ...draft, name: draft.name || "Tag name" }}/></div>
       <div className="wide tag-form-actions"><button className="glow-button" disabled={busy}>{busy ? "Saving…" : draft.id ? "Save tag" : "Create tag"} <Check size={16}/></button><button type="button" className="ghost-pill" onClick={() => setDraft(null)}>Cancel</button></div>
     </form>}
@@ -174,5 +175,46 @@ export function TagsAdmin({ freshSession }: { freshSession?: Fresh }) {
     <h3 className="tag-members-title">Give tags to members</h3>
     <form className="tag-search" onSubmit={(event) => { event.preventDefault(); void run((token) => lookUp(token)); }}><Search size={17}/><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by email, name or username" aria-label="Search members"/><button className="ghost-pill" disabled={busy}>Search</button></form>
     <div className="member-list">{members === null ? null : members.length === 0 ? <p className="admin-copy">No members found.</p> : members.map((member) => { const name = [member.first_name, member.last_name].filter(Boolean).join(" ") || member.username || member.email.split("@")[0]; return <article key={member.id}><Avatar url={member.avatar_url} name={name} className="avatar-mini"/><div><b>{name}</b><small>{member.email}</small></div><div className="member-tag-toggles">{(tags ?? []).map((tag) => <button key={tag.id} className={member.tag_ids.includes(tag.id) ? "on" : ""} aria-pressed={member.tag_ids.includes(tag.id)} disabled={busy} onClick={() => toggle(member, tag)}><TagChip tag={tag}/></button>)}</div></article>; })}</div>
+  </div>;
+}
+
+type Badge = { tag: Tag; earnedAt: string | null };
+const badgeDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+
+// Account → Badges: every BH tag. The ones this member has come first, in full colour; the others are locked and
+// say how to earn them. Hovering (or tapping) a badge shows what it means.
+export function BadgesPage({ freshSession, owner }: { freshSession: Fresh; owner: boolean }) {
+  const [badges, setBadges] = useState<Badge[] | null>(null);
+  const [problem, setProblem] = useState("");
+  useEffect(() => {
+    void (async () => {
+      try { const active = await freshSession(); if (!active) throw new Error("Your session ended. Please sign in again."); setBadges(await fetchMyBadges(active)); }
+      catch (error) { setProblem(messageOf(error)); }
+    })();
+  }, []);
+  const earned = (badges ?? []).filter((badge) => badge.earnedAt).sort((a, b) => a.tag.sort_order - b.tag.sort_order);
+  const locked = (badges ?? []).filter((badge) => !badge.earnedAt);
+  const card = ({ tag, earnedAt }: Badge, isOwner = false) => {
+    const Icon = icons[tag.icon] ?? BadgeCheck;
+    return <article key={tag.id} className={earnedAt || isOwner ? "badge-card earned" : "badge-card locked"} style={{ ["--tag" as string]: tag.colour }} tabIndex={0} aria-label={`${tag.name}${earnedAt || isOwner ? "" : " (locked)"}`}>
+      <span className="badge-icon">{earnedAt || isOwner ? <Icon size={22}/> : <Lock size={18}/>}</span>
+      <b>{tag.name}</b>
+      <span className="badge-tip" role="tooltip">
+        {tag.description && <span>{tag.description}</span>}
+        {tag.how_to_earn && <small><Icon size={12}/> {tag.how_to_earn}</small>}
+        {earnedAt ? <em><Check size={12}/> Obtained {badgeDate(earnedAt)}</em> : isOwner ? <em><Check size={12}/> Yours as the owner</em> : <i>Locked</i>}
+      </span>
+    </article>;
+  };
+  return <div className="badges-page">
+    <div className="panel-heading"><div><p className="eyebrow"><Trophy size={14}/> BADGES</p><h2>Your badges<span>.</span></h2><p>Badges show under your name on your profile and next to your reviews. Hover or tap a badge to see what it means and how to earn it.</p></div></div>
+    {problem && <p className="save-banner save-fail" role="alert"><X size={17}/>{problem}</p>}
+    {badges === null && !problem && <p className="admin-copy">Loading badges…</p>}
+    {badges && <>
+      <h3 className="badges-title">Earned <span>{earned.length + (owner ? 1 : 0)}</span></h3>
+      {earned.length || owner ? <div className="badge-grid">{owner && card({ tag: ownerTag, earnedAt: null }, true)}{earned.map((badge) => card(badge))}</div> : <p className="admin-copy">No badges yet. Start with the ones below.</p>}
+      <h3 className="badges-title">Locked <span>{locked.length}</span></h3>
+      {locked.length ? <div className="badge-grid">{locked.map((badge) => card(badge))}</div> : <p className="admin-copy">You have every badge there is. Nice.</p>}
+    </>}
   </div>;
 }

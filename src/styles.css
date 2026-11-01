@@ -879,16 +879,110 @@ html { scrollbar-gutter: stable; }
   .login-redesign .login-form input { padding: 12px 15px; font-size: 14px; }
   .login-redesign .login-form .remember-me, .login-redesign .login-form .updates-choice { font-size: 11px; }
   .login-redesign .login-form .social-buttons { margin-bottom: 4px; }
-  /* create account: Username | Email, Password | Confirm, Date of birth */
-  .login-redesign .login-form form:has(label:nth-child(5)) { grid-template-columns: 1fr 1fr; column-gap: 14px; row-gap: 6px;
-    grid-template-areas: "user email" "pass confirm" "birth ." "remember remember" "updates updates" "submit submit"; }
+  /* create account: Username | Email, Password | Confirm (the password needs are listed under the password) */
+  .login-redesign .login-form form:has(label:nth-child(5)) { grid-template-columns: 1fr 1fr; column-gap: 16px; row-gap: 10px; align-items: start;
+    grid-template-areas: "user email" "pass confirm" "remember remember" "updates updates" "submit submit"; }
   .login-redesign .login-form form:has(label:nth-child(5)) > label:nth-child(1) { grid-area: user; }
   .login-redesign .login-form form:has(label:nth-child(5)) > label:nth-child(2) { grid-area: email; }
-  .login-redesign .login-form form:has(label:nth-child(5)) > label:nth-child(3) { grid-area: birth; }
-  .login-redesign .login-form form:has(label:nth-child(5)) > label:nth-child(4) { grid-area: pass; }
-  .login-redesign .login-form form:has(label:nth-child(5)) > label:nth-child(5) { grid-area: confirm; }
+  .login-redesign .login-form form:has(label:nth-child(5)) > label:nth-child(3) { grid-area: pass; }
+  .login-redesign .login-form form:has(label:nth-child(5)) > label:nth-child(4) { grid-area: confirm; }
   .login-redesign .login-form form:has(label:nth-child(5)) > .remember-me { grid-area: remember; }
   .login-redesign .login-form form:has(label:nth-child(5)) > .updates-choice { grid-area: updates; }
-  .login-redesign .login-form form:has(label:nth-child(5)) > button { grid-area: submit; margin-top: 6px; }
+  .login-redesign .login-form form:has(label:nth-child(5)) > button { grid-area: submit; margin-top: 8px; }
 }
 @media (max-width: 900px) { .login-redesign .auth-close { color: #fff8ef; } }
+
+/* Sign-in window spacing: room between fields, between the field and its button, and a readable switch link */
+.login-redesign .login-form label { margin-bottom: 12px; }
+.login-redesign .login-form .remember-me { margin: 4px 0 8px; }
+.login-redesign .login-form form > .glow-button { margin-top: 14px; }
+.login-redesign .login-form .auth-toggle { margin-top: 16px; font-size: 13px; letter-spacing: .01em; }
+.login-redesign .login-form .auth-toggle b { font-size: 13px; }
+.login-redesign .login-form input[name="code"] { font-size: 20px; letter-spacing: .35em; text-align: center; }
+.login-redesign .login-form input[name="code"]::placeholder { letter-spacing: .35em; color: #c9b9a8; }
+.password-rules { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 8px 0 0; padding: 0; list-style: none; text-transform: none; letter-spacing: 0; font-size: 11.5px; font-weight: 500; color: #a08f80; }
+.password-rules li { display: inline-flex; align-items: center; gap: 4px; transition: color .2s; }
+.password-rules li svg { opacity: .35; transition: opacity .2s; }
+.password-rules li.met { color: #2f7d5b; }
+.password-rules li.met svg { opacity: 1; }
+
+/* Birthday reminder for members who haven't added one */
+.birthday-nudge { position: fixed; z-index: 85; right: 24px; bottom: 100px; display: flex; gap: 14px; width: min(380px, calc(100vw - 24px)); padding: 18px 44px 18px 18px; border-radius: 22px; background: #fffdf9; color: #2f2620; box-shadow: 0 22px 50px rgba(39, 29, 22, .22), 0 0 0 1px rgba(58, 44, 34, .06); animation: nudge-up .45s cubic-bezier(.2, .8, .2, 1); }
+.birthday-nudge .icon-orb { flex: none; }
+.birthday-nudge b { display: block; font: 700 17px var(--serif); letter-spacing: -.03em; }
+.birthday-nudge p { margin: 4px 0 12px; color: #7a6352; font-size: 13px; line-height: 1.5; }
+.birthday-nudge div > div { display: flex; gap: 8px; flex-wrap: wrap; }
+.birthday-nudge .glow-button, .birthday-nudge .ghost-pill { padding: 10px 16px; font-size: 11px; }
+.birthday-nudge-close { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; padding: 0; display: grid; place-items: center; border-radius: 50%; background: #f3ebe1; }
+@media (max-width: 600px) { .birthday-nudge { left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); width: auto; } }
+
+/* Account → Badges */
+.badges-title { display: flex; align-items: center; gap: 10px; margin: 26px 0 12px; font: 600 13px var(--serif); letter-spacing: .08em; text-transform: uppercase; color: #5b4636; }
+.badges-title span { display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 7px; border-radius: 999px; background: #f1e7d8; font-size: 11px; letter-spacing: 0; }
+.badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+.badge-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 22px 12px 18px; border-radius: 20px; background: #fff; border: 1px solid #efe4d6; text-align: center; outline: none; transition: transform .25s, box-shadow .25s; }
+.badge-card b { font: 600 14px var(--serif); letter-spacing: -.02em; color: #2f2620; }
+.badge-icon { display: grid; place-items: center; width: 54px; height: 54px; border-radius: 18px; background: color-mix(in srgb, var(--tag) 14%, #fff); color: var(--tag); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tag) 30%, transparent); }
+.badge-card.earned:hover, .badge-card.earned:focus-visible { transform: translateY(-3px); box-shadow: 0 16px 30px rgba(78, 49, 29, .12); }
+.badge-card.locked { background: #faf6f0; border-style: dashed; }
+.badge-card.locked .badge-icon { background: #efe8de; color: #a99886; box-shadow: none; }
+.badge-card.locked b { color: #a99886; }
+.badge-tip { position: absolute; z-index: 5; left: 50%; bottom: calc(100% + 10px); width: 230px; display: grid; gap: 6px; padding: 12px 14px; border-radius: 14px; background: #2f2620; color: #f6efe6; font-size: 12.5px; line-height: 1.45; text-align: left; box-shadow: 0 14px 30px rgba(0, 0, 0, .25); opacity: 0; pointer-events: none; transform: translate(-50%, 6px); transition: opacity .2s, transform .2s; }
+.badge-tip:after { content: ""; position: absolute; left: 50%; top: 100%; border: 7px solid transparent; border-top-color: #2f2620; transform: translateX(-50%); }
+.badge-tip small { display: flex; gap: 6px; align-items: flex-start; color: #d9c7b4; font-size: 12px; }
+.badge-tip small svg { flex: none; margin-top: 2px; }
+.badge-tip em { display: flex; align-items: center; gap: 5px; margin-top: 2px; color: #7fd1a8; font-style: normal; font-weight: 700; font-size: 12px; }
+.badge-tip i { color: #c9b9a8; font-style: normal; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+.badge-card:hover .badge-tip, .badge-card:focus .badge-tip, .badge-card:focus-within .badge-tip { opacity: 1; transform: translate(-50%, 0); }
+@media (max-width: 600px) { .badge-grid { grid-template-columns: repeat(2, 1fr); } .badge-tip { width: 200px; } }
+
+/* Owner area → Activity log */
+.activity-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 12px; }
+.activity-filters button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid #e6d6c2; border-radius: 999px; background: #fff; color: #5b4636; font-size: 12px; font-weight: 600; }
+.activity-filters button.active { background: #3a2c22; border-color: #3a2c22; color: #fff; }
+.activity-day h3 { margin: 26px 0 10px; font: 600 12px var(--serif); letter-spacing: .1em; text-transform: uppercase; color: #8a5a3c; }
+.activity-row { display: grid; grid-template-columns: 40px 1fr auto; gap: 14px; align-items: start; padding: 14px 16px; border: 1px solid #efe4d6; border-radius: 16px; background: #fff; margin-bottom: 8px; }
+.activity-row b { font-size: 14px; color: #2f2620; }
+.activity-row p { margin: 3px 0 4px; color: #4a3a2f; font-size: 13.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.activity-row small { color: #a08f80; font-size: 12px; }
+.activity-row time { color: #8b7a6c; font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.activity-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: #f6efe6; color: #8a5a3c; }
+.activity-row.cat-orders .activity-icon { background: #e9f3ee; color: #2f7d5b; }
+.activity-row.cat-sign_ins .activity-icon, .activity-row.cat-accounts .activity-icon { background: #eceefa; color: #4d58a8; }
+.activity-row.cat-catalog .activity-icon { background: #fbefe2; color: #a8641f; }
+.activity-row.cat-coupons .activity-icon { background: #fcebee; color: #b04761; }
+.activity-row.cat-papers .activity-icon, .activity-row.cat-content .activity-icon { background: #f1efe9; color: #5d5a52; }
+.activity-more { display: block; margin: 16px auto 0; }
+
+/* Owner area → Coupons */
+.coupon-editor small, .coupon-editor label small { display: block; margin-top: 4px; color: #a08f80; font-size: 11px; text-transform: none; letter-spacing: 0; font-weight: 500; }
+.coupon-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin-top: 18px; }
+.coupon-card { display: grid; gap: 10px; padding: 18px; border: 1px solid #efe4d6; border-radius: 18px; background: #fff; }
+.coupon-card.paused, .coupon-card.ended { background: #faf7f2; }
+.coupon-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.coupon-top b { font: 700 17px var(--serif); letter-spacing: .04em; }
+.coupon-card > strong { font: 600 24px var(--serif); letter-spacing: -.03em; color: #8a5a3c; }
+.coupon-state { padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.coupon-state.active { background: #e3f3ea; color: #2f7d5b; }
+.coupon-state.paused { background: #f1ece5; color: #8b7a6c; }
+.coupon-state.scheduled { background: #eceefa; color: #4d58a8; }
+.coupon-state.ended { background: #fbe7e4; color: #a3412f; }
+.coupon-card dl { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin: 0; }
+.coupon-card dt { color: #a08f80; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+.coupon-card dd { margin: 2px 0 0; color: #2f2620; font-size: 13px; font-weight: 600; }
+.coupon-note { margin: 0; color: #7a6352; font-size: 12.5px; }
+.coupon-actions { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+.coupon-actions .ghost-pill { margin-right: auto; padding: 8px 14px; font-size: 11px; }
+
+/* Owner area → FAQ */
+.faq-admin-list { display: grid; gap: 10px; margin-top: 18px; }
+.faq-admin-list article { display: flex; gap: 14px; justify-content: space-between; align-items: flex-start; padding: 16px 18px; border: 1px solid #efe4d6; border-radius: 16px; background: #fff; }
+.faq-admin-list article.hidden-question { background: #faf7f2; opacity: .75; }
+.faq-admin-list b { font-size: 14.5px; color: #2f2620; }
+.faq-admin-list p { margin: 6px 0 4px; color: #6b5a4c; font-size: 13.5px; line-height: 1.55; white-space: pre-line; }
+.faq-admin-list small { display: inline-flex; align-items: center; gap: 5px; margin-right: 12px; color: #a08f80; font-size: 12px; }
+.faq-admin-actions { display: flex; gap: 2px; flex: none; }
+.faq-admin-actions .icon { width: 34px; height: 34px; }
+.faq-form textarea { width: 100%; padding: 12px 14px; border: 1px solid #e6d6c2; border-radius: 13px; font: inherit; resize: vertical; }
+@media (max-width: 600px) { .activity-row { grid-template-columns: 34px 1fr; } .activity-row time { grid-column: 2; } .faq-admin-list article { flex-direction: column; } }
+.coupon-editor { align-items: start; }
