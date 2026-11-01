@@ -344,10 +344,10 @@ export async function uploadAvatar(session: UserSession, image: Blob) {
 // ---------------------------------------------------------------------------------------------------------------
 export const tagIcons = ["badge-check", "shield-check", "crown", "sparkles", "gem", "star", "heart", "flame", "zap", "trophy"] as const;
 export type TagIcon = (typeof tagIcons)[number];
-export type Tag = { id: number; name: string; icon: TagIcon; colour: string; description: string; rule: "manual" | "phone_verified"; sort_order: number };
+export type Tag = { id: number; name: string; icon: TagIcon; colour: string; description: string; how_to_earn: string; rule: "manual" | "phone_verified"; sort_order: number };
 export type TagDraft = Omit<Tag, "id"> & { id?: number };
 export type Member = { id: string; email: string; first_name: string; last_name: string; username: string; avatar_url: string; tag_ids: number[] };
-const TAG_COLUMNS = "id,name,icon,colour,description,rule,sort_order";
+const TAG_COLUMNS = "id,name,icon,colour,description,how_to_earn,rule,sort_order";
 const byOrder = (a: Tag, b: Tag) => a.sort_order - b.sort_order || a.id - b.id;
 
 export async function fetchTags(token?: string) {
@@ -359,9 +359,19 @@ export async function fetchMyTags(session: UserSession) {
   return (rows ?? []).map(row => row.tags).filter((tag): tag is Tag => Boolean(tag)).sort(byOrder);
 }
 
+// Badges page: every tag, and the ones this member has with the date they got each.
+export async function fetchMyBadges(session: UserSession) {
+  const [all, mine] = await Promise.all([
+    fetchTags(session.accessToken),
+    request<{ tag_id: number; granted_at: string }[]>(`/rest/v1/user_tags?user_id=eq.${encodeURIComponent(session.userId)}&select=tag_id,granted_at`, {}, session.accessToken),
+  ]);
+  const earned = new Map((mine ?? []).map(row => [row.tag_id, row.granted_at]));
+  return all.map(tag => ({ tag, earnedAt: earned.get(tag.id) ?? null }));
+}
+
 export async function saveTag(tag: TagDraft, token: string) {
   const { id, ...fields } = tag;
-  const body = JSON.stringify({ ...fields, name: fields.name.trim(), description: fields.description.trim() });
+  const body = JSON.stringify({ ...fields, name: fields.name.trim(), description: fields.description.trim(), how_to_earn: (fields.how_to_earn ?? "").trim() });
   const rows = id
     ? await request<Tag[]>(`/rest/v1/tags?id=eq.${id}&select=${TAG_COLUMNS}`, { method: "PATCH", body, headers: { Prefer: "return=representation" } }, token)
     : await request<Tag[]>(`/rest/v1/tags?select=${TAG_COLUMNS}`, { method: "POST", body, headers: { Prefer: "return=representation" } }, token);
@@ -492,3 +502,60 @@ export const fetchMyBag = (session: UserSession) =>
 
 export const saveMyBag = (session: UserSession, lines: BagLine[]) =>
   request<number>("/rest/v1/rpc/save_my_cart", { method: "POST", body: JSON.stringify({ lines }) }, session.accessToken);
+
+// ---------------------------------------------------------------------------------------------------------------
+// Activity log (owner only): written by the database itself; the site only reads it.
+// ---------------------------------------------------------------------------------------------------------------
+export const activityCategories = ["orders", "sign_ins", "accounts", "catalog", "coupons", "members", "automations", "content", "papers"] as const;
+export type ActivityCategory = (typeof activityCategories)[number];
+export type ActivityEntry = { id: number; created_at: string; category: ActivityCategory; action: string; summary: string; actor_email: string };
+export async function fetchActivity(token: string, options: { category?: ActivityCategory; before?: number; search?: string; limit?: number } = {}) {
+  const query = new URLSearchParams({ select: "id,created_at,category,action,summary,actor_email", order: "id.desc", limit: String(options.limit ?? 60) });
+  if (options.category) query.set("category", `eq.${options.category}`);
+  if (options.before) query.set("id", `lt.${options.before}`);
+  const words = options.search?.trim().replace(/[,()*]/g, " ").trim();
+  if (words) query.set("or", `(summary.ilike.*${words}*,actor_email.ilike.*${words}*,action.ilike.*${words}*)`);
+  return (await request<ActivityEntry[]>(`/rest/v1/activity_log?${query}`, {}, token)) ?? [];
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Coupons (owner only). Checkout will check the dates and limits once payments open.
+// ---------------------------------------------------------------------------------------------------------------
+export type Coupon = { id: number; code: string; kind: "percent" | "fixed"; amount: number; currency: "ILS" | "USD"; active: boolean; starts_at: string | null; expires_at: string | null; max_uses: number | null; per_customer_limit: number | null; times_used: number; note: string; created_at: string };
+export type CouponDraft = Omit<Coupon, "id" | "times_used" | "created_at"> & { id?: number };
+const COUPON_COLUMNS = "id,code,kind,amount,currency,active,starts_at,expires_at,max_uses,per_customer_limit,times_used,note,created_at";
+export const fetchCoupons = (token: string) => request<Coupon[]>(`/rest/v1/coupons?select=${COUPON_COLUMNS}&order=created_at.desc`, {}, token).then(rows => (rows ?? []).map(row => ({ ...row, amount: Number(row.amount) })));
+export async function saveCoupon(coupon: CouponDraft, token: string) {
+  const { id, ...fields } = coupon;
+  const body = JSON.stringify({ ...fields, code: fields.code.trim().toUpperCase(), note: fields.note.trim() });
+  const rows = id
+    ? await request<Coupon[]>(`/rest/v1/coupons?id=eq.${id}&select=${COUPON_COLUMNS}`, { method: "PATCH", body, headers: { Prefer: "return=representation" } }, token)
+    : await request<Coupon[]>(`/rest/v1/coupons?select=${COUPON_COLUMNS}`, { method: "POST", body, headers: { Prefer: "return=representation" } }, token);
+  if (!rows?.[0]) throw new CatalogError("The coupon was not saved. You may not have permission.");
+  return { ...rows[0], amount: Number(rows[0].amount) };
+}
+export async function deleteCoupon(id: number, token: string) {
+  const rows = await request<Coupon[]>(`/rest/v1/coupons?id=eq.${id}&select=id`, { method: "DELETE", headers: { Prefer: "return=representation" } }, token);
+  if (!rows?.length) throw new CatalogError("The coupon was not deleted. You may not have permission.");
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// FAQ: shown to everyone; the owner adds, edits, hides and reorders questions.
+// ---------------------------------------------------------------------------------------------------------------
+export type FaqItem = { id: number; question: string; answer: string; question_he: string; answer_he: string; sort_order: number; active: boolean };
+export type FaqDraft = Omit<FaqItem, "id"> & { id?: number };
+const FAQ_COLUMNS = "id,question,answer,question_he,answer_he,sort_order,active";
+export const fetchFaq = (token?: string) => request<FaqItem[]>(`/rest/v1/faq_items?select=${FAQ_COLUMNS}&order=sort_order,id`, {}, token).then(rows => rows ?? []);
+export async function saveFaq(item: FaqDraft, token: string) {
+  const { id, ...fields } = item;
+  const body = JSON.stringify({ ...fields, question: fields.question.trim(), answer: fields.answer.trim(), question_he: fields.question_he.trim(), answer_he: fields.answer_he.trim() });
+  const rows = id
+    ? await request<FaqItem[]>(`/rest/v1/faq_items?id=eq.${id}&select=${FAQ_COLUMNS}`, { method: "PATCH", body, headers: { Prefer: "return=representation" } }, token)
+    : await request<FaqItem[]>(`/rest/v1/faq_items?select=${FAQ_COLUMNS}`, { method: "POST", body, headers: { Prefer: "return=representation" } }, token);
+  if (!rows?.[0]) throw new CatalogError("The question was not saved. You may not have permission.");
+  return rows[0];
+}
+export async function deleteFaq(id: number, token: string) {
+  const rows = await request<FaqItem[]>(`/rest/v1/faq_items?id=eq.${id}&select=id`, { method: "DELETE", headers: { Prefer: "return=representation" } }, token);
+  if (!rows?.length) throw new CatalogError("The question was not removed. You may not have permission.");
+}

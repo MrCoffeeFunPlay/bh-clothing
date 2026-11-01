@@ -31,7 +31,7 @@ const rowFrom = (payload, id) => ({
   product_colours: payload.colours.map((c, i) => ({ ...c, sort_order: i })), product_weight_prices: payload.weight_prices,
 });
 let db = products.map(p => rowFrom(store.productToPayload(p, categories), p.id));
-const backend = { down: false, failNextSave: false, saves: [], emails: [], signupRedirects: [], expired: new Set() };
+const backend = { lastQueries: {}, down: false, failNextSave: false, saves: [], emails: [], signupRedirects: [], expired: new Set() };
 const users = {
   'owner@example.com': { password: 'owner-pass', admin: true, confirmed: true },
   'customer@example.com': { password: 'customer-pass', admin: false, confirmed: true },
@@ -49,6 +49,12 @@ const uploads = [];
 let automationsDb = [{ id: 1, name: 'We miss you', trigger: 'no_sign_in', days: 30, channel: 'email', subject: '{first_name}, it\'s been a while', body: 'Hi {first_name}', coupon_code: '', button_label: 'See what\'s new', marketing: true, active: false }];
 let nextAutomationId = 2;
 let ordersDb = []; let nextOrderId = 1;
+const couponsDb = [{ id: 1, code: 'WELCOME10', kind: 'percent', amount: '10.00', currency: 'ILS', active: true, starts_at: null, expires_at: null, max_uses: null, per_customer_limit: 1, times_used: 0, note: 'Welcome offer', created_at: '2026-11-02T08:00:00Z' }];
+const faqDb = [{ id: 1, question: 'Where do you ship?', answer: 'Everywhere.', question_he: '', answer_he: '', sort_order: 10, active: true }];
+const activityDb = [
+  { id: 2, created_at: new Date().toISOString(), category: 'catalog', action: 'Product changed', summary: 'Fallen Sword: 220g price ₪120.00 → ₪125.00', actor_email: 'owner@example.com' },
+  { id: 1, created_at: '2026-10-29T10:00:00Z', category: 'papers', action: 'Papers published', summary: 'Privacy policy and terms of use published', actor_email: '' },
+];
 const savedBags = {}; // email -> lines
 const orderRow = (input, id) => {
   const subtotal = input.items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
@@ -138,6 +144,7 @@ globalThis.fetch = async (url, init = {}) => {
     if (!init.method || init.method === 'GET') {
       const owner = emailOfUid(params.get('user_id').replace('eq.', ''));
       if (owner !== email && !isAdmin) return json([]);
+      if (params.get('select') === 'tag_id,granted_at') return json([...tagsOf(owner)].map(id => ({ tag_id: id, granted_at: '2026-10-30T10:00:00Z' })));
       return json([...tagsOf(owner)].map(id => ({ tags: tagsDb.find(tag => tag.id === id) ?? null })));
     }
     if (!isAdmin) return json({ message: 'new row violates row-level security policy for table "user_tags"' }, 403);
@@ -177,6 +184,21 @@ globalThis.fetch = async (url, init = {}) => {
     if (init.method === 'POST') { const row = { ...body, id: nextAutomationId++ }; automationsDb.push(row); return json([row], 201); }
     if (init.method === 'PATCH') { automationsDb = automationsDb.map(row => row.id === id ? { ...row, ...body } : row); return json(automationsDb.filter(row => row.id === id)); }
     if (init.method === 'DELETE') { automationsDb = automationsDb.filter(row => row.id !== id); return json([{ id }]); }
+  }
+  for (const [table, rows, publicRead] of [['coupons', couponsDb, false], ['faq_items', faqDb, true], ['activity_log', activityDb, false]]) {
+    if (!path.startsWith('/rest/v1/' + table)) continue;
+    const params = new URL(url).searchParams; const id = Number(params.get('id')?.replace('eq.', ''));
+    if (!init.method || init.method === 'GET') {
+      if (!isAdmin && !publicRead) return json([]);
+      backend.lastQueries[table] = params;
+      const category = params.get('category')?.replace('eq.', '');
+      return json(structuredClone(rows.filter(row => (isAdmin || row.active !== false) && (!category || row.category === category))));
+    }
+    if (!isAdmin || table === 'activity_log') return json({ message: `new row violates row-level security policy for table "${table}"` }, 403);
+    if (init.method === 'POST') { const row = { times_used: 0, created_at: '2026-11-02T09:00:00Z', ...body, id: rows.length + 100 }; rows.push(row); return json([row], 201); }
+    const index = rows.findIndex(row => row.id === id);
+    if (init.method === 'PATCH') { rows[index] = { ...rows[index], ...body }; return json([rows[index]]); }
+    if (init.method === 'DELETE') { rows.splice(index, 1); return json([{ id }]); }
   }
   if (path === '/rest/v1/rpc/admin_automation_reach') return isAdmin ? json(body.rule === 'no_sign_in' && body.only_opted_in === true ? 3 : null) : json({ code: '42501', message: 'not authorised' }, 403);
   if (path === '/rest/v1/rpc/admin_find_members') {
@@ -629,6 +651,47 @@ assert.ok(document.querySelector('.auth-message.error'), 'refused');
 assert.doesNotMatch(accountMenuText(), /gina@gmail\.com/);
 delete window.google;
 
+// 22. Badges, the owner's activity log, coupons with dates and limits, and an FAQ the owner edits.
+clearBrowser();
+tagsDb.push({ id: 99, name: 'Collector', icon: 'gem', colour: '#555555', description: 'Owns five BH pieces.', how_to_earn: 'Buy five BH pieces.', rule: 'manual', sort_order: 50 });
+await visit('account');
+await signIn('dana@gmail.com', 'dana-pass'); await settle(200);
+await click(btn('Badges', document.querySelector('.account-dashboard aside'))); await settle(200);
+const badgeNames = selector => [...document.querySelectorAll(selector)].map(card => card.querySelector('b').textContent);
+assert.ok(badgeNames('.badge-card.earned').length >= 1, 'earned badges are listed');
+assert.ok(badgeNames('.badge-card.locked').length >= 1, 'locked badges are listed too');
+const lockedCard = document.querySelector('.badge-card.locked');
+assert.match(lockedCard.querySelector('.badge-tip').textContent, /Owns five BH pieces\..*Buy five BH pieces\..*Locked/s, 'what it is and how to earn it');
+const earnedCard = document.querySelector('.badge-card.earned');
+assert.match(earnedCard.querySelector('.badge-tip').textContent, /Obtained 30 October 2026/);
+await click(btn('Sign out', document.querySelector('.account-dropdown')));
+await visit('info', '#faq'); await settle(200);
+assert.match(document.querySelector('.faq-list').textContent, /Where do you ship\?.*Everywhere/s, 'the FAQ comes from the database');
+clearBrowser();
+await visit('admin');
+await signIn('owner@example.com', 'owner-pass'); await settle(200);
+await click(btn('Activity log')); await settle(200);
+assert.match(document.querySelector('.activity-log').textContent, /Today.*Product changed.*₪120\.00 → ₪125\.00.*by owner@example\.com.*Papers published/s);
+await click(btn('Terms & privacy', document.querySelector('.activity-filters'))); await settle(200);
+assert.equal(backend.lastQueries.activity_log.get('category'), 'eq.papers');
+assert.deepEqual([...document.querySelectorAll('.activity-row b')].map(b => b.textContent), ['Papers published']);
+await click(btn('Coupons', document.querySelector('.admin-shell aside'))); await settle(200);
+assert.match(document.querySelector('.coupon-card').textContent, /WELCOME10.*Active.*10% off.*Per customer.*Once/s);
+await click(btn('New coupon'));
+await set(label('Code'), 'bh50'); await set(label('Percent'), '15'); await set(label('Total uses'), '50');
+await set(label('Uses per customer'), '');
+await submit(document.querySelector('.coupon-editor'));
+assert.deepEqual({ ...couponsDb.at(-1), id: 0 }, { ...couponsDb.at(-1), id: 0, code: 'BH50', kind: 'percent', amount: 15, max_uses: 50, per_customer_limit: null });
+assert.match([...document.querySelectorAll('.coupon-card')].map(card => card.textContent).join(' '), /BH50.*15% off.*Used0 \/ 50.*Per customerUnlimited/s);
+await click(btn('FAQ', document.querySelector('.admin-shell aside'))); await settle(200);
+await click(btn('New question'));
+await set(label('Question'), 'How do sizes fit?');
+await act(() => { const box = [...document.querySelectorAll('.faq-form label')].find(el => el.textContent.startsWith('Answer')).querySelector('textarea'); Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(box, 'Oversized: take your usual size.'); box.dispatchEvent(new Event('input', { bubbles: true })); });
+await submit(document.querySelector('.faq-form'));
+assert.equal(faqDb.at(-1).question, 'How do sizes fit?'); assert.equal(faqDb.at(-1).sort_order, 20, 'added at the end');
+assert.equal(document.querySelectorAll('.faq-admin-list article').length, 2);
+await assert.rejects(store.saveCoupon({ code: 'FREE', kind: 'percent', amount: 100, currency: 'ILS', active: true, starts_at: null, expires_at: null, max_uses: null, per_customer_limit: null, note: '' }, 'token:dana@gmail.com'), /permission|security/);
+
 await act(() => root.unmount());
 rmSync('.live-dom', { recursive: true, force: true });
-console.log('PASS: Google sign-in from BH\'s own site, bag saved in the account and in the browser, unpaid test orders recorded by the owner and shown to members (no payment or receipt from the website), BH updates choice, designed automation emails, automations, profile pictures, phone verification with the Verified tag, owner-managed member tags, real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');
+console.log('PASS: badges page, activity log, coupons with limits, editable FAQ, Google sign-in from BH\'s own site, bag saved in the account and in the browser, unpaid test orders recorded by the owner and shown to members (no payment or receipt from the website), BH updates choice, designed automation emails, automations, profile pictures, phone verification with the Verified tag, owner-managed member tags, real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');
