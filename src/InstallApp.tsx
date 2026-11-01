@@ -79,8 +79,8 @@ export function InstallNudge() {
   useEffect(() => {
     if (!available || !isPhone() || snoozed()) return;
     let timer = 0;
-    // wait until no other window (welcome offer, sign-in) is open
-    const tryShow = () => { if (document.querySelector("[aria-modal='true']")) timer = window.setTimeout(tryShow, 4000); else setOpen(true); };
+    // wait until no other window (welcome offer, sign-in, birthday note) is open
+    const tryShow = () => { if (document.querySelector("[aria-modal='true'], .birthday-nudge")) timer = window.setTimeout(tryShow, 4000); else setOpen(true); };
     timer = window.setTimeout(tryShow, NUDGE_DELAY_MS);
     return () => window.clearTimeout(timer);
   }, [available]);

@@ -324,12 +324,13 @@ assert.doesNotMatch(accountMenuText(), /Owner area/);
 
 // 9. Saving profile details goes to the database and shows a clear confirmation at the top.
 scrolls.length = 0;
-await set(label('First name'), 'Noa'); await set(label('Last name'), 'Levi'); await set(label('Country'), 'Israel');
+await set(label('First name'), 'Noa'); await set(label('Last name'), 'Levi');
+assert.equal(label('Country'), undefined, 'no country field: currency follows the visitor\'s time zone');
 await set(label('Date of birth'), '1995-04-02');
 await submit(document.querySelector('.profile-form'));
 assert.match(document.querySelector('.save-banner.save-ok').textContent, /Your changes have been saved/);
 assert.ok(scrolls.some(options => options?.top === 0), 'page scrolls to the top');
-assert.deepEqual(profiles['customer@example.com'], { first_name: 'Noa', last_name: 'Levi', username: '', birthday: '1995-04-02', country: 'Israel', avatar_url: '', marketing_opt_in: false });
+assert.deepEqual(profiles['customer@example.com'], { first_name: 'Noa', last_name: 'Levi', username: '', birthday: '1995-04-02', country: '', avatar_url: '', marketing_opt_in: false });
 await visit('account');
 assert.equal(label('First name').value, 'Noa', 'details are still there after a refresh');
 assert.match(document.querySelector('.account-clean-hero').textContent, /Welcome back.*Noa/s);
@@ -347,8 +348,11 @@ assert.equal(sessionStorage.getItem('bh-session-v1'), null);
 await click(document.querySelector('.account-menu .icon'));
 await click(btn('New to BH?'));
 await set(label('Username', modal()), 'shira'); await set(label('Email address', modal()), 'new@example.com');
-await set(label('Date of birth', modal()), '2000-01-15');
+assert.equal(label('Date of birth', modal()), undefined, 'no birthday at sign-up (a reminder asks later)');
 await set(label('Password', modal()), 'a-good-password'); await set(label('Confirm password', modal()), 'a-good-password');
+await submit(modal().querySelector('form'));
+assert.match(modal().querySelector('.auth-message.error').textContent, /letters and numbers/, 'passwords need a number');
+await set(label('Password', modal()), 'a-good-password7'); await set(label('Confirm password', modal()), 'a-good-password7');
 assert.equal(label(' Send me BH updates', modal()).checked, false, 'updates are optional and never pre-ticked');
 await click(label(' Send me BH updates', modal()));
 await submit(modal().querySelector('form'));
@@ -363,7 +367,8 @@ await set(label('Confirmation code', modal()), '482915');
 await submit(modal().querySelector('form'));
 assert.equal(modal(), null);
 assert.match(accountMenuText(), /new@example\.com/);
-assert.deepEqual(profiles['new@example.com'], { first_name: '', last_name: '', username: 'shira', birthday: '2000-01-15', country: '', avatar_url: '', marketing_opt_in: true });
+assert.deepEqual(profiles['new@example.com'], { first_name: '', last_name: '', username: 'shira', birthday: null, country: '', avatar_url: '', marketing_opt_in: true });
+assert.match(document.querySelector('.link-notice.save-ok').textContent, /Your email is confirmed and you're signed in/, 'green message after the code too');
 await click(btn('Sign out', document.querySelector('.account-dropdown')));
 assert.equal(backend.signupRedirects[0], 'http://localhost/', 'the confirmation link brings people back to the site');
 // An unconfirmed account cannot log in until the code is entered.

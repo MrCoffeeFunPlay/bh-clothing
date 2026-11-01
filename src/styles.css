@@ -879,16 +879,39 @@ html { scrollbar-gutter: stable; }
   .login-redesign .login-form input { padding: 12px 15px; font-size: 14px; }
   .login-redesign .login-form .remember-me, .login-redesign .login-form .updates-choice { font-size: 11px; }
   .login-redesign .login-form .social-buttons { margin-bottom: 4px; }
-  /* create account: Username | Email, Password | Confirm, Date of birth */
-  .login-redesign .login-form form:has(label:nth-child(5)) { grid-template-columns: 1fr 1fr; column-gap: 14px; row-gap: 6px;
-    grid-template-areas: "user email" "pass confirm" "birth ." "remember remember" "updates updates" "submit submit"; }
+  /* create account: Username | Email, Password | Confirm (the password needs are listed under the password) */
+  .login-redesign .login-form form:has(label:nth-child(5)) { grid-template-columns: 1fr 1fr; column-gap: 16px; row-gap: 10px; align-items: start;
+    grid-template-areas: "user email" "pass confirm" "remember remember" "updates updates" "submit submit"; }
   .login-redesign .login-form form:has(label:nth-child(5)) > label:nth-child(1) { grid-area: user; }
   .login-redesign .login-form form:has(label:nth-child(5)) > label:nth-child(2) { grid-area: email; }
-  .login-redesign .login-form form:has(label:nth-child(5)) > label:nth-child(3) { grid-area: birth; }
-  .login-redesign .login-form form:has(label:nth-child(5)) > label:nth-child(4) { grid-area: pass; }
-  .login-redesign .login-form form:has(label:nth-child(5)) > label:nth-child(5) { grid-area: confirm; }
+  .login-redesign .login-form form:has(label:nth-child(5)) > label:nth-child(3) { grid-area: pass; }
+  .login-redesign .login-form form:has(label:nth-child(5)) > label:nth-child(4) { grid-area: confirm; }
   .login-redesign .login-form form:has(label:nth-child(5)) > .remember-me { grid-area: remember; }
   .login-redesign .login-form form:has(label:nth-child(5)) > .updates-choice { grid-area: updates; }
-  .login-redesign .login-form form:has(label:nth-child(5)) > button { grid-area: submit; margin-top: 6px; }
+  .login-redesign .login-form form:has(label:nth-child(5)) > button { grid-area: submit; margin-top: 8px; }
 }
 @media (max-width: 900px) { .login-redesign .auth-close { color: #fff8ef; } }
+
+/* Sign-in window spacing: room between fields, between the field and its button, and a readable switch link */
+.login-redesign .login-form label { margin-bottom: 12px; }
+.login-redesign .login-form .remember-me { margin: 4px 0 8px; }
+.login-redesign .login-form form > .glow-button { margin-top: 14px; }
+.login-redesign .login-form .auth-toggle { margin-top: 16px; font-size: 13px; letter-spacing: .01em; }
+.login-redesign .login-form .auth-toggle b { font-size: 13px; }
+.login-redesign .login-form input[name="code"] { font-size: 20px; letter-spacing: .35em; text-align: center; }
+.login-redesign .login-form input[name="code"]::placeholder { letter-spacing: .35em; color: #c9b9a8; }
+.password-rules { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 8px 0 0; padding: 0; list-style: none; text-transform: none; letter-spacing: 0; font-size: 11.5px; font-weight: 500; color: #a08f80; }
+.password-rules li { display: inline-flex; align-items: center; gap: 4px; transition: color .2s; }
+.password-rules li svg { opacity: .35; transition: opacity .2s; }
+.password-rules li.met { color: #2f7d5b; }
+.password-rules li.met svg { opacity: 1; }
+
+/* Birthday reminder for members who haven't added one */
+.birthday-nudge { position: fixed; z-index: 85; right: 24px; bottom: 100px; display: flex; gap: 14px; width: min(380px, calc(100vw - 24px)); padding: 18px 44px 18px 18px; border-radius: 22px; background: #fffdf9; color: #2f2620; box-shadow: 0 22px 50px rgba(39, 29, 22, .22), 0 0 0 1px rgba(58, 44, 34, .06); animation: nudge-up .45s cubic-bezier(.2, .8, .2, 1); }
+.birthday-nudge .icon-orb { flex: none; }
+.birthday-nudge b { display: block; font: 700 17px var(--serif); letter-spacing: -.03em; }
+.birthday-nudge p { margin: 4px 0 12px; color: #7a6352; font-size: 13px; line-height: 1.5; }
+.birthday-nudge div > div { display: flex; gap: 8px; flex-wrap: wrap; }
+.birthday-nudge .glow-button, .birthday-nudge .ghost-pill { padding: 10px 16px; font-size: 11px; }
+.birthday-nudge-close { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; padding: 0; display: grid; place-items: center; border-radius: 50%; background: #f3ebe1; }
+@media (max-width: 600px) { .birthday-nudge { left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); width: auto; } }

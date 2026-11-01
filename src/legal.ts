@@ -9,14 +9,14 @@ export const privacySections: LegalSection[] = [
   { heading: "Who we are", paragraphs: [`BH Clothing is an Israeli clothing brand. This policy explains what we keep about you when you use bhclothing.fashion and the BH app, and why. Questions or requests: ${BUSINESS_EMAIL}.`] },
   { heading: "What we keep", points: [
     "Your account: your email address and your password. The password is handled by our sign-in service and stored in a protected (hashed) form; we never see it.",
-    "Your profile, if you fill it in: first and last name, username, date of birth, country and profile picture.",
+    "Your profile, if you fill it in: first and last name, username, date of birth and profile picture.",
     "Sign-in with Google, if you choose it: Google shares your name and email address with us. We don't receive your Google password.",
     "Your phone number, only if you verify your account with it.",
     "Whether you want BH updates (new drops and member offers by email), and when you said yes.",
     "Your bag (the pieces, colours and sizes you added) and your orders: the pieces, prices, delivery address, phone number and order status.",
     "Member tags shown on your profile, such as Verified.",
   ] },
-  { heading: "What stays in your browser", paragraphs: ["Your sign-in (so you stay signed in if you choose \"Remember me\"), a visitor's bag before signing in, your currency choice, whether you've seen the welcome offer, and copies of site files and images so the BH app opens quickly. You can clear these in your browser settings at any time."] },
+  { heading: "What stays in your browser", paragraphs: ["Your sign-in (so you stay signed in if you choose \"Remember me\"), a visitor's bag before signing in, your currency choice (until you choose, it is set from your device's time zone: shekels in Israel, dollars elsewhere), whether you've seen the welcome offer, and copies of site files and images so the BH app opens quickly. You can clear these in your browser settings at any time."] },
   { heading: "How we use it", points: [
     "To run your account, your bag and your orders, and to show your profile and tags.",
     "To send account emails, such as your sign-up confirmation code.",
