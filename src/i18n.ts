@@ -233,7 +233,7 @@ const he: Record<string, string> = {
   "We couldn't load the live catalogue, so products and prices are not shown right now. Nothing is lost; please try again in a moment.": "לא הצלחנו לטעון את הקטלוג, ולכן המוצרים והמחירים לא מוצגים כרגע. שום דבר לא אבד; נסו שוב בעוד רגע.",
   "Original price": "מחיר מקורי", "BH SALE": "מבצע BH", "· Ends": "· מסתיים",
   // Language
-  "Language": "שפה", "English": "English", "Hebrew": "עברית",
+  "Language": "שפה", "We couldn't show your bag": "לא הצלחנו להציג את הסל", "English": "English", "Hebrew": "עברית",
 };
 
 // Text that includes a value (a number, an email, a date).
@@ -252,6 +252,8 @@ const patterns: [RegExp, string][] = [
   [/^Choose (BH [A-Z]+)$/, "בחירת $1"],
   [/^Continue with (Google|Facebook|Apple)$/, "המשך עם $1"],
   [/^(\d+) out of 5 stars$/, "$1 מתוך 5 כוכבים"],
+  [/^(\d+) pieces$/, "$1 פריטים"],
+  [/^1 piece$/, "פריט אחד"],
   [/^— (\d+) colours in (.+)$/, "— $1 צבעים ב-$2"],
   [/^Verified customer · (\d)\/5$/, "לקוח/ה מאומת/ת · $1/5"],
   [/^From (\d+) verified reviews$/, "מתוך $1 ביקורות מאומתות"],

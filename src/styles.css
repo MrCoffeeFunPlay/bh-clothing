@@ -1003,3 +1003,13 @@ html.lang-he :is(p, h1, h2, h3, h4, span, b, strong, em, small, label, button, a
 .language-note span { display: block; margin-top: 4px; }
 .info-page .language-note { margin: 0 0 18px; padding: 12px 16px; border-radius: 14px; background: #f6efe6; }
 html.lang-he :is(h1, h2)[dir="rtl"] * { unicode-bidi: normal; }
+
+/* The bag slides in without fading, so it can never be left invisible over the grey backdrop */
+.cart-drawer { animation: cart-in .3s cubic-bezier(.2, .8, .2, 1); overflow-y: auto; overscroll-behavior: contain; }
+@keyframes cart-in { from { transform: translate3d(0, 12px, 0); } to { transform: none; } }
+.error-detail { display: block; margin-top: 12px; color: #a08f80; font-size: 11px; overflow-wrap: anywhere; }
+
+/* Phone menu → Language */
+.nav-drawer-foot > .menu-language { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 10px 9px 16px; border-radius: 16px; background: #fff; box-shadow: 0 6px 18px rgba(78, 49, 29, .06); font-size: 14px; font-weight: 600; color: #2f2620; }
+.menu-language .language-choice { margin: 0; }
+.menu-language .language-choice button { padding: 7px 14px; font-size: 12px; }
