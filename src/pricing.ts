@@ -46,3 +46,17 @@ export function cartTotals(items: Product[], currency: Currency, sale?: Sale, no
   const total = saleAmount(subtotal, sale, currency, now);
   return { subtotal, discount: money(subtotal - total), total };
 }
+
+// The order total with one offer only: the store-wide sale or a coupon code, whichever saves more ("one code per
+// order, always the best valid offer"). Product sale prices are already in the subtotal. A fixed-amount code works
+// only in its own currency.
+export type AppliedCoupon = { code: string; kind: "percent" | "fixed"; amount: number; currency: Currency };
+export function orderTotals(items: Product[], currency: Currency, sale?: Sale, coupon?: AppliedCoupon | null, now = Date.now()) {
+  const { subtotal, discount: storeDiscount } = cartTotals(items, currency, sale, now);
+  if (subtotal === null) return { subtotal: null, storeDiscount: null, couponDiscount: null, offer: null, total: null, couponProblem: null };
+  const couponProblem = coupon && coupon.kind === "fixed" && coupon.currency !== currency ? "currency" as const : null;
+  const couponDiscount = !coupon || couponProblem ? 0 : money(Math.min(subtotal, coupon.kind === "percent" ? subtotal * coupon.amount / 100 : coupon.amount));
+  const offer = couponDiscount > 0 && couponDiscount >= (storeDiscount ?? 0) ? "coupon" as const : (storeDiscount ?? 0) > 0 ? "store" as const : null;
+  const saved = offer === "coupon" ? couponDiscount : offer === "store" ? storeDiscount ?? 0 : 0;
+  return { subtotal, storeDiscount, couponDiscount, offer, total: money(subtotal - saved), couponProblem };
+}

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { products } from '../src/catalog.ts';
-import { emptySale, productAmount, productOriginalAmount, saleActive, cartTotals, type Sale } from '../src/pricing.ts';
+import { emptySale, productAmount, productOriginalAmount, saleActive, cartTotals, orderTotals, type Sale } from '../src/pricing.ts';
 const now = Date.parse('2026-10-26T12:00:00Z');
 const campaign = (extra: Partial<Sale> = {}): Sale => ({ ...emptySale(), enabled: true, startsAt: '2026-10-26T00:00:00Z', endsAt: '2026-11-09T00:00:00Z', ...extra });
 
@@ -90,4 +90,17 @@ test('the customer always gets the lower price: a smaller timed sale never raise
   assert.equal(productAmount(bigger, 'ILS', '220g', now), 96);
   assert.equal(productAmount(bigger, 'USD', '220g', now), 31.19);
   assert.equal(productOriginalAmount(bigger, 'ILS', '220g'), 120);
+});
+test('checkout: one offer per order (store sale or coupon, whichever saves more); fixed codes only in their currency', () => {
+  const bag = [{ ...products[0], selectedWeight: '220g' as const }, { ...products[1], selectedWeight: '260g' as const }]; // ₪249.98
+  const ten = { code: 'WELCOME10', kind: 'percent' as const, amount: 10, currency: 'ILS' as const };
+  assert.deepEqual(orderTotals(bag, 'ILS', undefined, ten, now), { subtotal: 249.98, storeDiscount: 0, couponDiscount: 25, offer: 'coupon', total: 224.98, couponProblem: null });
+  const store15 = orderTotals(bag, 'ILS', campaign(), ten, now);
+  assert.equal(store15.offer, 'store', 'the 15% store sale beats a 10% code'); assert.equal(store15.total, 212.48);
+  assert.equal(orderTotals(bag, 'ILS', campaign({ value: 5 }), ten, now).offer, 'coupon', 'a 10% code beats a 5% sale');
+  const shekels = { code: 'BH20', kind: 'fixed' as const, amount: 20, currency: 'ILS' as const };
+  assert.equal(orderTotals(bag, 'ILS', undefined, shekels, now).total, 229.98);
+  assert.equal(orderTotals(bag, 'USD', undefined, shekels, now).couponProblem, 'currency');
+  assert.equal(orderTotals(bag, 'USD', undefined, shekels, now).couponDiscount, 0);
+  assert.equal(orderTotals(bag, 'ILS', undefined, { ...shekels, amount: 900 }, now).total, 0, 'never below zero');
 });

@@ -1,6 +1,6 @@
 // The privacy policy and terms of use, written to match what the site actually does today. They are a plain-language
 // starting point, not legal advice: have them reviewed by a professional before orders open.
-export const LEGAL_UPDATED = "1 November 2026";
+export const LEGAL_UPDATED = "4 November 2026";
 export const BUSINESS_EMAIL = "support@bhclothing.fashion";
 
 export type LegalSection = { heading: string; paragraphs?: string[]; points?: string[] };
@@ -12,6 +12,7 @@ export const privacySections: LegalSection[] = [
     "Your profile, if you fill it in: first and last name, username, date of birth and profile picture.",
     "Sign-in with Google, if you choose it: Google shares your name and email address with us. We don't receive your Google password.",
     "Your phone number, only if you verify your account with it.",
+    "Your delivery details (name, phone and address), only if you save them at checkout, so they are ready next time.",
     "Whether you want BH updates (new drops and member offers by email), and when you said yes.",
     "Your bag (the pieces, colours and sizes you added) and your orders: the pieces, prices, delivery address, phone number and order status.",
     "Member tags shown on your profile, such as Verified.",
@@ -19,6 +20,7 @@ export const privacySections: LegalSection[] = [
   { heading: "What stays in your browser", paragraphs: ["Your sign-in (so you stay signed in if you choose \"Remember me\"), a visitor's bag before signing in, your currency choice (until you choose, it is set from your device's time zone: shekels in Israel, dollars elsewhere), whether you've seen the welcome offer, and copies of site files and images so the BH app opens quickly. You can clear these in your browser settings at any time."] },
   { heading: "How we use it", points: [
     "To run your account, your bag and your orders, and to show your profile and tags.",
+    "To check a discount code you enter (the code is checked by our database and is not used up until a paid order uses it).",
     "To send account emails, such as your sign-up confirmation code.",
     "To send BH updates only if you switched them on. You can switch them off in Account settings at any time, and every update email has an unsubscribe link.",
     "Your date of birth is used only for a birthday reward.",

@@ -31,7 +31,8 @@ const rowFrom = (payload, id) => ({
   product_colours: payload.colours.map((c, i) => ({ ...c, sort_order: i })), product_weight_prices: payload.weight_prices,
 });
 let db = products.map(p => rowFrom(store.productToPayload(p, categories), p.id));
-const backend = { lastQueries: {}, down: false, failNextSave: false, saves: [], emails: [], signupRedirects: [], expired: new Set() };
+const deliveries = {};
+const backend = { couponChecks: [], lastQueries: {}, down: false, failNextSave: false, saves: [], emails: [], signupRedirects: [], expired: new Set() };
 const users = {
   'owner@example.com': { password: 'owner-pass', admin: true, confirmed: true },
   'customer@example.com': { password: 'customer-pass', admin: false, confirmed: true },
@@ -73,6 +74,8 @@ globalThis.fetch = async (url, init = {}) => {
   const body = typeof init.body === 'string' ? JSON.parse(init.body) : {};
   if (token && backend.expired.has(token) && !path.startsWith('/auth/v1/token')) return json({ code: 'PGRST303', message: 'JWT expired' }, 401);
   if (path.startsWith('/rest/v1/categories')) return json(categories);
+  if (path.startsWith('/rest/v1/profiles') && new URL(url).searchParams.get('select') === 'delivery') return json([{ delivery: deliveries[email] ?? {} }]);
+  if (path === '/rest/v1/profiles' && init.method === 'POST' && body.delivery) { deliveries[email] = body.delivery; return json(undefined, 201); }
   if (path.startsWith('/rest/v1/products')) return json(structuredClone(db.filter(row => row.active || isAdmin)));
   if (path === '/auth/v1/token?grant_type=password') {
     const user = users[body.email];
@@ -184,6 +187,11 @@ globalThis.fetch = async (url, init = {}) => {
     if (init.method === 'POST') { const row = { ...body, id: nextAutomationId++ }; automationsDb.push(row); return json([row], 201); }
     if (init.method === 'PATCH') { automationsDb = automationsDb.map(row => row.id === id ? { ...row, ...body } : row); return json(automationsDb.filter(row => row.id === id)); }
     if (init.method === 'DELETE') { automationsDb = automationsDb.filter(row => row.id !== id); return json([{ id }]); }
+  }
+  if (path === '/rest/v1/rpc/check_coupon') {
+    backend.couponChecks.push({ ...body, signedIn: Boolean(email) });
+    const known = { BH15: { ok: true, code: 'BH15', kind: 'percent', amount: 15, currency: 'ILS', discount: 0 }, WELCOME10: email ? { ok: true, code: 'WELCOME10', kind: 'percent', amount: 10, currency: 'ILS', discount: 0 } : { ok: false, reason: 'sign_in', code: 'WELCOME10' } };
+    return json(known[String(body.wanted).trim().toUpperCase()] ?? { ok: false, reason: 'ended', code: body.wanted });
   }
   for (const [table, rows, publicRead] of [['coupons', couponsDb, false], ['faq_items', faqDb, true], ['activity_log', activityDb, false]]) {
     if (!path.startsWith('/rest/v1/' + table)) continue;
@@ -714,6 +722,41 @@ assert.equal(document.documentElement.lang, 'en');
 assert.match(settingsText(), /Stay in control/); assert.doesNotMatch(document.body.textContent, /השליטה אצלך/);
 assert.equal(profiles['dana@gmail.com'].language, 'en');
 
+// 24. Checkout: a discount code checked by the database, one offer per order, delivery details saved to the account,
+// and the pay button stays locked (payments aren't open: nothing is charged, no order is placed).
+clearBrowser();
+await visit('store');
+await addOniBlade('M');
+await navigate('cart');
+const codeInput = () => document.querySelector('#coupon-code');
+await set(codeInput(), 'old1'); await submit(document.querySelector('.coupon-box'));
+assert.match(document.querySelector('.coupon-message.error').textContent, /expired/);
+await set(codeInput(), 'welcome10'); await submit(document.querySelector('.coupon-box'));
+assert.match(document.querySelector('.coupon-message.error').textContent, /once per customer: sign in/, 'once-per-customer codes ask to sign in');
+await set(codeInput(), 'bh15'); await submit(document.querySelector('.coupon-box'));
+assert.deepEqual(backend.couponChecks.at(-1), { wanted: 'BH15', bag_currency: 'ILS', bag_subtotal: 109.99, signedIn: false }, 'the database checks the code for this bag');
+assert.match(document.querySelector('.cart-layout aside').textContent, /BH15.*15% off.*Subtotal₪109\.99.*Code BH15−₪16\.50.*Total before shipping₪93\.49/s);
+await click(btn('Continue to checkout'));
+const checkout = () => document.querySelector('.checkout-page');
+assert.match(checkout().textContent, /Payments aren't open yet.*Contact.*Delivery.*Payment.*Secure payment opens soon/s);
+assert.match(document.querySelector('.checkout-summary').textContent, /Oni Blade.*BH15.*₪93\.49/s, 'the code follows to checkout');
+assert.ok(document.querySelector('.checkout-summary .primary').disabled, 'the pay button is locked');
+assert.equal(document.querySelector('.checkout-save'), null, 'guests have nothing to save to');
+await signIn('dana@gmail.com', 'dana-pass'); await settle(300);
+await navigate('checkout'); await settle(200);
+const checkoutField = (text) => [...checkout().querySelectorAll('label')].find(el => el.textContent.startsWith(text)).querySelector('input,select');
+assert.equal(checkoutField('Email address').value, 'dana@gmail.com', 'signed in: email filled in');
+await set(checkoutField('Full name'), 'Dana Cohen'); await set(checkoutField('Phone'), '0501234567');
+await set(checkoutField('City'), 'Tel Aviv'); await set(checkoutField('Street and number'), 'Dizengoff 120');
+await click(btn('Save these details to my account')); await settle(200);
+assert.equal(deliveries['dana@gmail.com'].street, 'Dizengoff 120');
+assert.match(checkout().textContent, /Saved for next time/);
+await click(document.querySelector('.checkout-terms input'));
+assert.ok(document.querySelector('.checkout-summary .primary').disabled, 'still locked after agreeing: payments are not open');
+assert.equal(ordersDb.filter(order => order.customer_name === 'Dana Cohen' && order.source !== 'manual').length, 0, 'no order is placed');
+await navigate('home'); await navigate('checkout'); await settle(200);
+assert.equal(checkoutField('Street and number').value, 'Dizengoff 120', 'saved details come back');
+
 await act(() => root.unmount());
 rmSync('.live-dom', { recursive: true, force: true });
-console.log('PASS: Hebrew option, badges page, activity log, coupons with limits, editable FAQ, Google sign-in from BH\'s own site, bag saved in the account and in the browser, unpaid test orders recorded by the owner and shown to members (no payment or receipt from the website), BH updates choice, designed automation emails, automations, profile pictures, phone verification with the Verified tag, owner-managed member tags, real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');
+console.log('PASS: checkout with discount codes, Hebrew option, badges page, activity log, coupons with limits, editable FAQ, Google sign-in from BH\'s own site, bag saved in the account and in the browser, unpaid test orders recorded by the owner and shown to members (no payment or receipt from the website), BH updates choice, designed automation emails, automations, profile pictures, phone verification with the Verified tag, owner-managed member tags, real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');

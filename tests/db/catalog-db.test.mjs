@@ -417,3 +417,43 @@ test('members can choose English or Hebrew, and every tag says how to earn it', 
     await assert.rejects(db.query(`update public.profiles set language = 'fr' where id = '${CUSTOMER}'`), /check constraint/);
   });
 });
+
+test('checkout: coupon codes are checked by the database (dates, limits, currency) and only for that bag', async () => {
+  await db.query(`insert into public.coupons (code, kind, amount, max_uses, per_customer_limit, expires_at) values
+    ('OLD', 'percent', 10, null, null, now() - interval '1 day'),
+    ('SOON', 'percent', 10, null, null, null),
+    ('FULL', 'percent', 10, 2, null, null),
+    ('SHEKEL20', 'fixed', 20, null, null, null),
+    ('EVERYONE', 'percent', 15, null, null, null)`);
+  await db.query(`update public.coupons set starts_at = now() + interval '2 days' where code = 'SOON'`);
+  await db.query(`update public.coupons set times_used = 2 where code = 'FULL'`);
+  const check = async (code, currency = 'ILS', subtotal = 200) => (await rows(`select public.check_coupon($1, $2, $3) as r`, [code, currency, subtotal]))[0].r;
+  await as('visitor', async () => {
+    assert.deepEqual(await check(' everyone '), { ok: true, code: 'EVERYONE', kind: 'percent', amount: 15, currency: 'ILS', discount: 30 }, 'any spelling, 15% of ₪200');
+    assert.equal((await check('NOPE')).reason, 'unknown');
+    assert.equal((await check('OLD')).reason, 'ended');
+    assert.equal((await check('SOON')).reason, 'not_started');
+    assert.equal((await check('FULL')).reason, 'used_up');
+    assert.equal((await check('WELCOME10')).reason, 'sign_in', 'once-per-customer codes need an account');
+    assert.equal((await check('SHEKEL20', 'USD')).reason, 'currency');
+    assert.equal((await check('SHEKEL20', 'ILS', 15)).discount, 15, 'a fixed code never takes more than the bag');
+    await assert.rejects(db.query(`select * from public.coupons`), /permission denied/, 'visitors still cannot list coupons');
+  });
+  await as('customer', async () => { assert.equal((await check('WELCOME10')).ok, true); });
+  // A paid order with the code uses it up for that customer.
+  // (as the payment provider will: only it may mark an order paid)
+  await db.exec(`select set_config('request.jwt.claim.role', 'service_role', false)`);
+  await db.query(`insert into public.orders (user_id, customer_name, customer_email, currency, subtotal, total, payment_status, coupon_code, is_test)
+    values ('${CUSTOMER}', 'C', 'customer@example.com', 'ILS', 100, 90, 'paid', 'WELCOME10', false)`);
+  await db.exec(`select set_config('request.jwt.claim.role', '', false)`);
+  await as('customer', async () => { assert.equal((await check('WELCOME10')).reason, 'already_used'); });
+});
+
+test('checkout: members save their own delivery details only', async () => {
+  await as('customer', async () => {
+    await db.query(`insert into public.profiles (id, delivery) values ('${CUSTOMER}', $1) on conflict (id) do update set delivery = excluded.delivery`, [JSON.stringify({ city: 'Tel Aviv', street: 'Dizengoff 1' })]);
+    assert.equal((await rows(`select delivery->>'city' as city from public.profiles where id = '${CUSTOMER}'`))[0].city, 'Tel Aviv');
+    await assert.rejects(db.query(`update public.profiles set delivery = '[]' where id = '${CUSTOMER}'`), /check constraint/);
+  });
+  await as('admin', async () => { assert.equal((await rows(`select count(*)::int as n from public.profiles where id = '${CUSTOMER}'`))[0].n, 0, 'not even an admin reads them through the API'); });
+});

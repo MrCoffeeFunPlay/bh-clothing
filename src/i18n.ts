@@ -108,7 +108,7 @@ const he: Record<string, string> = {
   "Exclusive member-only edit previews": "הצצות בלעדיות לחברים", "The complete BH member experience.": "חוויית החבר המלאה של BH.", "Everything in BH PLUS": "כל מה שב-BH PLUS",
   "Best member pricing across the store": "מחירי החברים הטובים ביותר בכל החנות", "Priority support and Black-only benefits": "תמיכה בעדיפות והטבות ל-Black בלבד",
   "Back to BH Plans": "חזרה למסלולי BH", "BH MEMBERSHIP": "המנוי של BH", "MONTHLY MEMBERSHIP": "מנוי חודשי", "Cancel anytime from Account settings.": "אפשר לבטל בכל זמן בהגדרות החשבון.",
-  "The final checkout will be connected after BH chooses its live payment providers.": "התשלום הסופי יחובר אחרי ש-BH תבחר את ספקי התשלום שלה.", "Continue to checkout": "המשך לתשלום",
+  "The final checkout will be connected after BH chooses its live payment providers.": "התשלום הסופי יחובר אחרי ש-BH תבחר את ספקי התשלום שלה.",
   // Gift cards
   "GIFT CARD READY": "כרטיס המתנה מוכן", "Made for": "נוצר בשביל", "GIFT CARD CODE": "קוד כרטיס המתנה", "Back to BH": "חזרה ל-BH", "Back to BH Club": "חזרה ל-BH Club",
   "DIGITAL BH GIFT CARD": "כרטיס מתנה דיגיטלי של BH", "Give them": "תנו להם", "the choice": "את הבחירה", "For": "בשביל", "someone special": "מישהו מיוחד",
@@ -232,6 +232,28 @@ const he: Record<string, string> = {
   "BH Store": "החנות של BH", "Trying again…": "מנסה שוב…", "Try again": "לנסות שוב",
   "We couldn't load the live catalogue, so products and prices are not shown right now. Nothing is lost; please try again in a moment.": "לא הצלחנו לטעון את הקטלוג, ולכן המוצרים והמחירים לא מוצגים כרגע. שום דבר לא אבד; נסו שוב בעוד רגע.",
   "Original price": "מחיר מקורי", "BH SALE": "מבצע BH", "· Ends": "· מסתיים",
+  // Checkout and discount codes
+  "Checkout": "תשלום", "Almost": "כמעט", "yours": "שלך", "Back to bag": "חזרה לסל", "Continue to checkout": "המשך לתשלום",
+  "Payments aren't open yet.": "התשלומים עוד לא נפתחו.", "You can fill in your details and check your total. You won't be charged and no order is placed.": "אפשר למלא פרטים ולבדוק את הסכום. לא יבוצע חיוב ולא תיווצר הזמנה.",
+  "Payments aren't open yet: you can check your total, nothing is charged.": "התשלומים עוד לא נפתחו: אפשר לבדוק את הסכום, שום דבר לא מחויב.",
+  "Have an account? Sign in to use your saved details and member codes.": "יש לכם חשבון? התחברו כדי להשתמש בפרטים השמורים ובקודים לחברים.",
+  "Contact": "פרטי קשר", "Full name": "שם מלא", "Country": "מדינה", "City": "עיר", "Street and number": "רחוב ומספר", "Apartment, floor (optional)": "דירה, קומה (לא חובה)",
+  "Postal code": "מיקוד", "Delivery notes (optional)": "הערות למשלוח (לא חובה)", "e.g. Leave with the neighbour": "למשל: להשאיר אצל השכנים",
+  "Save these details to my account": "שמירת הפרטים בחשבון שלי", "Saved for next time.": "נשמר לפעם הבאה.", "Not saved. Please try again.": "לא נשמר. נסו שוב.",
+  "Delivery options and their prices will appear here when delivery opens.": "אפשרויות המשלוח והמחירים שלהן יופיעו כאן כשהמשלוחים ייפתחו.",
+  "Payment": "תשלום", "Secure payment opens soon": "התשלום המאובטח ייפתח בקרוב",
+  "Payments will be handled by a licensed payment provider. BH never sees or stores your card number.": "התשלומים יטופלו על ידי חברת סליקה מורשית. BH לא רואה ולא שומרת את מספר הכרטיס שלך.",
+  "Israel": "ישראל", "United States": "ארצות הברית", "United Kingdom": "בריטניה", "Canada": "קנדה", "Germany": "גרמניה", "France": "צרפת", "Other": "אחר",
+  "I agree to the": "אני מסכים/ה ל", "and the Privacy policy.": "ולמדיניות הפרטיות.", "Pay — opens soon": "תשלום — ייפתח בקרוב", "Payments open soon": "התשלומים ייפתחו בקרוב",
+  "Nothing is charged. When payments open, this button will take you to the secure payment page.": "שום דבר לא מחויב. כשהתשלומים ייפתחו, הכפתור הזה יעביר לעמוד התשלום המאובטח.",
+  "Discount code": "קוד הנחה", "Code": "קוד", "Enter a code": "הזינו קוד", "Apply": "הפעלה", "Remove code": "הסרת הקוד", "Shown when delivery opens": "יוצג כשהמשלוחים ייפתחו",
+  "We couldn't find this code. Check the spelling.": "לא מצאנו את הקוד. בדקו את האיות.", "This code isn't active right now.": "הקוד לא פעיל כרגע.",
+  "This code isn't active yet.": "הקוד עוד לא פעיל.", "This code has expired.": "תוקף הקוד פג.", "This code has been fully used.": "הקוד נוצל עד הסוף.",
+  "This code is once per customer: sign in to use it.": "הקוד הזה הוא לפעם אחת ללקוח: התחברו כדי להשתמש בו.", "You've already used this code.": "כבר השתמשת בקוד הזה.",
+  "This code works only on prices in another currency. Switch the currency to use it.": "הקוד עובד רק על מחירים במטבע אחר. החליפו מטבע כדי להשתמש בו.",
+  "Your store sale already saves more, so the code isn't added on top. One offer per order.": "המבצע בחנות כבר חוסך יותר, ולכן הקוד לא מתווסף. הטבה אחת להזמנה.",
+  "We couldn't check the code. Check the connection and try again.": "לא הצלחנו לבדוק את הקוד. בדקו את החיבור ונסו שוב.",
+  "Your bag is empty.": "הסל שלך ריק.", "Add a piece to your bag to check out.": "הוסיפו פריט לסל כדי לעבור לתשלום.", "We couldn't show the checkout": "לא הצלחנו להציג את עמוד התשלום",
   // Language
   "Language": "שפה", "We couldn't show your bag": "לא הצלחנו להציג את הסל", "English": "English", "Hebrew": "עברית",
 };
@@ -253,6 +275,9 @@ const patterns: [RegExp, string][] = [
   [/^Continue with (Google|Facebook|Apple)$/, "המשך עם $1"],
   [/^(\d+) out of 5 stars$/, "$1 מתוך 5 כוכבים"],
   [/^(\d+) pieces$/, "$1 פריטים"],
+  [/^Code ([A-Z0-9_-]+)$/, "קוד $1"],
+  [/^(\d+(?:\.\d+)?)% off$/, "$1% הנחה"],
+  [/^([₪$][\d.,]+) off$/, "$1 הנחה"],
   [/^1 piece$/, "פריט אחד"],
   [/^— (\d+) colours in (.+)$/, "— $1 צבעים ב-$2"],
   [/^Verified customer · (\d)\/5$/, "לקוח/ה מאומת/ת · $1/5"],
@@ -270,7 +295,7 @@ export function translate(english: string): string | null {
 }
 
 // ---- Swapping the page's text ------------------------------------------------------------------------------------
-const SKIP = "script, style, textarea, input, select, [data-no-translate], .admin-shell, .admin-workspace, .legal-text, .faq-list, code";
+const SKIP = "script, style, textarea, input, [data-no-translate], .admin-shell, .admin-workspace, .legal-text, .faq-list, code";
 const ATTRIBUTES = ["placeholder", "aria-label", "title"] as const;
 const originalText = new WeakMap<Text, string>();
 const shownText = new WeakMap<Text, string>();
