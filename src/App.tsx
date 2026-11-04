@@ -5,7 +5,7 @@ import { WelcomeOfferModal } from "./WelcomeOfferModal";
 import { AssistantV2 } from "./AssistantV2";
 import { CurrencySelector, ProductPrice, productAmount, formatMoney, useCurrency } from "./currency";
 
-import { cartTotals, emptySale, type Sale } from "./pricing";
+import { cartTotals, emptySale, orderTotals, type AppliedCoupon, type Sale } from "./pricing";
 import { bagItems, lineOf, mergeLines, readGuestBag, removeUnit, writeGuestBag } from "./bag";
 import { CatalogError, fetchFaq, type FaqItem, signInWithGoogleToken, claimPhoneTags, currentSession, fetchMyBag, fetchMyTags, saveMyBag, type BagLine, type Tag, emptyProfile, enabledSocialProviders, rememberSocialChoice, sessionFromConfirmationLink, socialSignInUrl, type SocialProvider, fetchCatalog, fetchProfile, isCatalogAdmin, liveCatalogConfigured, productToPayload, resendSignupCode, saveProduct as saveLiveProduct, saveProfile, signIn, signOut, signUp, uploadProductImage, verifySignupCode, type AdminSession, type CategoryRow, type Profile, type UserSession } from "./catalogStore";
 import { SaleFields, StoreSalePanel, SaleAnnouncement, saleError } from "./Sales";
@@ -15,10 +15,11 @@ import { GoogleButton } from "./GoogleButton";
 import { BUSINESS_EMAIL, LEGAL_UPDATED, privacySections, termsSections, type LegalSection } from "./legal";
 import { MyOrders, OrdersAdmin } from "./Orders";
 import { ActivityLog, CouponsAdmin, FaqAdmin } from "./OwnerTools";
+import { CheckoutPage, CouponBox, SummaryLines, readCoupon } from "./Checkout";
 import { applyLanguage, currentLanguage, translate, useLanguage } from "./i18n";
 import { Avatar, AvatarEditor, BadgesPage, PhoneVerify, TagList, TagsAdmin, initials } from "./Members";
 
-type View = "home" | "store" | "collection" | "club" | "account" | "reviews" | "product" | "cart" | "admin" | "info" | "plan" | "gift";
+type View = "home" | "store" | "collection" | "club" | "account" | "reviews" | "product" | "cart" | "admin" | "info" | "plan" | "gift" | "checkout";
 type AccountSection = "profile" | "badges" | "orders" | "wallet" | "settings";
 type InfoPage = "about" | "faq" | "terms" | "privacy";
 const infoPages: InfoPage[] = ["about", "faq", "terms", "privacy"];
@@ -81,6 +82,7 @@ export default function App() {
   const signedIn = Boolean(session);
   const [cartOpen, setCartOpen] = useState(false);
   const [accountSection, setAccountSection] = useState<AccountSection>("profile");
+  const [coupon, setCoupon] = useState<AppliedCoupon | null>(readCoupon); // one code per order, kept for this visit
   const [infoPage, setInfoPage] = useState<InfoPage>("about");
   const [selectedPlan, setSelectedPlan] = useState<PlanName>("BH CORE");
   const live = liveCatalogConfigured();
@@ -212,7 +214,7 @@ export default function App() {
     // Information pages have their own addresses (#about, #faq, #terms, #privacy) so they can be linked to directly.
     const infoLinked = window.location.hash.slice(1) as InfoPage;
     if (!window.history.state && infoPages.includes(infoLinked)) window.history.replaceState({ view: "info", info: infoLinked }, "", "#" + infoLinked);
-    if (!window.history.state) { const linked = window.location.hash.slice(1); const known = ["home", "store", "collection", "club", "account", "reviews", "cart", "admin", "info", "plan", "gift"].includes(linked); window.history.replaceState({ view: known ? linked : "home" }, "", "#" + (known ? linked : "home")); } restoreHistoryRoute();
+    if (!window.history.state) { const linked = window.location.hash.slice(1); const known = ["home", "store", "collection", "club", "account", "reviews", "cart", "checkout", "admin", "info", "plan", "gift"].includes(linked); window.history.replaceState({ view: known ? linked : "home" }, "", "#" + (known ? linked : "home")); } restoreHistoryRoute();
     window.addEventListener("popstate", restoreHistoryRoute);
     return () => window.removeEventListener("popstate", restoreHistoryRoute);
   }, []);
@@ -248,7 +250,8 @@ export default function App() {
       {view === "account" && <Account go={go} session={session} profile={profile} isOwner={isOwner} onSignIn={() => setAuthOpen(true)} onProfileSaved={setProfile} freshSession={freshSession} section={accountSection} setSection={setAccountSection} tags={myTags} onTagsChanged={setMyTags}/>} {/* route */}
       {view === "reviews" && <Reviews open={open}/>}
       {view === "product" && <ProductPage key={product.id} product={product} go={go} add={add}/>}
-      {view === "cart" && <SafeArea fallback={(message) => <section className="page"><h2>We couldn't show your bag</h2><p>Please try again. If it keeps happening, tell us at {contactEmail}.</p><small className="error-detail">{message}</small></section>}><CartPageV2 items={cart} remove={remove} go={go}/></SafeArea>}
+      {view === "checkout" && <SafeArea fallback={(message) => <section className="page"><h2>We couldn't show the checkout</h2><p>Please try again. If it keeps happening, tell us at {contactEmail}.</p><small className="error-detail">{message}</small></section>}><CheckoutView items={cart} coupon={coupon} setCoupon={setCoupon} session={session} freshSession={freshSession} openAuth={() => setAuthOpen(true)} go={go} openTerms={() => openInfo("terms")}/></SafeArea>}
+      {view === "cart" && <SafeArea fallback={(message) => <section className="page"><h2>We couldn't show your bag</h2><p>Please try again. If it keeps happening, tell us at {contactEmail}.</p><small className="error-detail">{message}</small></section>}><CartPageV2 items={cart} remove={remove} go={go} coupon={coupon} setCoupon={setCoupon} freshSession={freshSession} signedIn={signedIn} openAuth={() => setAuthOpen(true)}/></SafeArea>}
       {view === "admin" && <AdminArea live={live} go={go} publishItem={publishItem} updateItem={updateItem} reloadStore={loadCatalog} categories={catalogState.categories ?? []} session={session} isOwner={isOwner} accountReady={accountReady} openAuth={() => setAuthOpen(true)} freshSession={freshSession} onSignOut={() => void leave()}/>}
       {view === "info" && <Info page={infoPage} openInfo={openInfo}/>}
       {view === "plan" && <PlanDetails plan={selectedPlan} go={go}/>}
@@ -599,21 +602,19 @@ function CartDrawer({ items, remove, onClose, go }: { items: Product[]; remove: 
   return <div className="drawer-layer" onMouseDown={onClose}><aside className="cart-drawer" onMouseDown={(event) => event.stopPropagation()}><div className="drawer-head"><div><p className="kicker">Your bag</p><h2>{items.length ? items.length + " pieces" : "Your bag is empty"}</h2></div><button className="icon" onClick={onClose}><X/></button></div>{items.length ? <><div className="drawer-items">{items.map((item, index) => <article key={item.id + "-" + index}><img loading="lazy" decoding="async" src={item.image} alt=""/><div><strong>{item.name}</strong><small>{item.color} · {item.selectedSize || "M"}{item.selectedWeight ? ` · ${item.selectedWeight.replace("g", " GSM")}` : ""}</small><b><ProductPrice product={liveItems[index]}/></b><button onClick={() => remove(index)}>Remove</button></div></article>)}</div><div className="drawer-total"><span>Subtotal</span><b>{subtotal === null ? "Coming soon" : formatMoney(subtotal, currency)}</b></div>{Boolean(discount) && <div className="drawer-total sale-saving"><span>{storeSale.title || "Store sale"}</span><b>−{formatMoney(discount!, currency)}</b></div>}<div className="drawer-total"><span>Total before shipping</span><b>{total === null ? "Coming soon" : formatMoney(total, currency)}</b></div><button className="primary full" onClick={() => { onClose(); go("cart"); }}>View full bag <ArrowRight size={16}/></button></> : <div className="empty-cart"><ShoppingBag size={30}/><p>Add something considered. It will appear here.</p><button className="primary" onClick={() => { onClose(); go("cart"); }}>Open my bag <ArrowRight size={16}/></button></div>}</aside></div>;
 }
 
-function CartPage({ items, remove, go }: { items: Product[]; remove: (id: number) => void; go: (view: View) => void }) {
-  const { currency } = useCurrency();
-  const { storeSale, now } = useCurrency();
+
+function CheckoutView({ items, ...rest }: Omit<Parameters<typeof CheckoutPage>[0], "liveItems" | "currency" | "storeSale" | "now"> & { go: (view: View) => void }) {
+  const { currency, storeSale, now } = useCurrency();
   const liveItems = items.map(item => ({ ...item, ...products.find(product => product.id === item.id), color: item.color, image: item.image, selectedSize: item.selectedSize, selectedWeight: item.selectedWeight }));
-  const { subtotal, discount, total } = cartTotals(liveItems, currency, storeSale, now);
-  return <section className="page cart-page"><div className="intro"><p className="kicker">BH Bag</p><h1>Ready when<br/>you <em>are</em><span>.</span></h1><p>International delivery is calculated securely at checkout.</p></div>{items.length ? <div className="cart-layout"><div className="cart-list">{items.map((item, index) => <article key={item.id + "-full-" + index}><img loading="lazy" decoding="async" src={item.image} alt=""/><div><p className="kicker">BH / {item.category}</p><h3>{item.name}</h3><small>Colour: {item.color} · Size: {item.selectedSize || "M"}{item.selectedWeight ? ` · ${item.selectedWeight.replace("g", " GSM")}` : ""}</small><button onClick={() => remove(index)}>Remove</button></div><strong><ProductPrice product={liveItems[index]}/></strong></article>)}</div><aside><p>Order summary</p><div><span>Subtotal</span><b>{subtotal === null ? "Coming soon" : formatMoney(subtotal, currency)}</b></div>{Boolean(discount) && <div className="sale-saving"><span>{storeSale.title || "Store sale"}</span><b>−{formatMoney(discount!, currency)}</b></div>}<div><span>Total before shipping</span><b>{total === null ? "Coming soon" : formatMoney(total, currency)}</b></div><div><span>Shipping</span><small>Calculated at checkout</small></div><button className="primary full" disabled={total === null} onClick={() => alert("Checkout will be connected after BH chooses its secure payment providers.")}>Secure checkout <ArrowRight size={16}/></button><small>BH Points can be applied at the real checkout.</small></aside></div> : <div className="empty-cart page-empty"><ShoppingBag size={35}/><h2>Your bag is waiting<span>.</span></h2><p>Start in the Store and build your next look.</p><button className="primary" onClick={() => go("store")}>Explore Store <ArrowRight size={16}/></button></div>}</section>;
+  return <CheckoutPage items={items} liveItems={liveItems} currency={currency} storeSale={storeSale} now={now} {...rest}/>;
 }
 
-function CartPageV2({ items, remove, go }: { items: Product[]; remove: (id: number) => void; go: (view: View) => void }) {
+function CartPageV2({ items, remove, go, coupon, setCoupon, freshSession, signedIn, openAuth }: { items: Product[]; remove: (id: number) => void; go: (view: View) => void; coupon: AppliedCoupon | null; setCoupon: (coupon: AppliedCoupon | null) => void; freshSession: () => Promise<UserSession | null>; signedIn: boolean; openAuth: () => void }) {
   const { currency } = useCurrency();
   const { storeSale, now } = useCurrency();
   const liveItems = items.map(item => ({ ...item, ...products.find(product => product.id === item.id), color: item.color, image: item.image, selectedSize: item.selectedSize, selectedWeight: item.selectedWeight }));
-  const { subtotal, discount, total } = cartTotals(liveItems, currency, storeSale, now);
-  const [payment, setPayment] = useState<"card" | "paypal">("card");
-  return <section className="page cart-page"><div className="intro"><p className="kicker">BH Bag</p><h1>Ready when<br/>you <em>are</em><span>.</span></h1><p>International delivery is calculated securely at checkout.</p></div>{items.length ? <div className="cart-layout"><div className="cart-list">{items.map((item, index) => <article key={item.id + "-full-" + index}><img loading="lazy" decoding="async" src={item.image} alt=""/><div><p className="kicker">BH / {item.category}</p><h3>{item.name}</h3><small>Colour: {item.color} · Size: {item.selectedSize || "M"}{item.selectedWeight ? ` · ${item.selectedWeight.replace("g", " GSM")}` : ""}</small><button onClick={() => remove(index)}>Remove</button></div><strong><ProductPrice product={liveItems[index]}/></strong></article>)}</div><aside><p>Order summary</p><div><span>Subtotal</span><b>{subtotal === null ? "Coming soon" : formatMoney(subtotal, currency)}</b></div>{Boolean(discount) && <div className="sale-saving"><span>{storeSale.title || "Store sale"}</span><b>−{formatMoney(discount!, currency)}</b></div>}<div><span>Total before shipping</span><b>{total === null ? "Coming soon" : formatMoney(total, currency)}</b></div><div><span>Shipping</span><small>Calculated at checkout</small></div><div className="checkout-payment"><span>Payment method</span><div><button className={payment === "card" ? "active" : ""} onClick={() => setPayment("card")}><CreditCard size={16}/> Card</button><button className={payment === "paypal" ? "active" : ""} onClick={() => setPayment("paypal")}>P PayPal</button></div></div><button className="primary full" disabled={total === null} onClick={() => alert("Secure checkout will be connected after BH chooses its live payment providers.")}>Secure checkout <ArrowRight size={16}/></button><small>BH Points can be applied at the real checkout.</small></aside></div> : <div className="empty-cart page-empty"><ShoppingBag size={35}/><h2>Your bag is waiting<span>.</span></h2><p>Start in the Store and build your next look.</p><button className="primary" onClick={() => go("store")}>Explore Store <ArrowRight size={16}/></button></div>}</section>;
+  const totals = orderTotals(liveItems, currency, storeSale, coupon, now);
+  return <section className="page cart-page"><div className="intro"><p className="kicker">BH Bag</p><h1>Ready when<br/>you <em>are</em><span>.</span></h1><p>International delivery is calculated securely at checkout.</p></div>{items.length ? <div className="cart-layout"><div className="cart-list">{items.map((item, index) => <article key={item.id + "-full-" + index}><img loading="lazy" decoding="async" src={item.image} alt=""/><div><p className="kicker">BH / {item.category}</p><h3>{item.name}</h3><small>Colour: {item.color} · Size: {item.selectedSize || "M"}{item.selectedWeight ? ` · ${item.selectedWeight.replace("g", " GSM")}` : ""}</small><button onClick={() => remove(index)}>Remove</button></div><strong><ProductPrice product={liveItems[index]}/></strong></article>)}</div><aside><p>Order summary</p><CouponBox coupon={coupon} setCoupon={setCoupon} currency={currency} totals={totals} freshSession={freshSession} signedIn={signedIn} openAuth={openAuth}/><SummaryLines totals={totals} currency={currency} coupon={coupon} storeSale={storeSale}/><button className="primary full" disabled={totals.total === null} onClick={() => go("checkout")}>Continue to checkout <ArrowRight size={16}/></button><small>Payments aren't open yet: you can check your total, nothing is charged.</small></aside></div> : <div className="empty-cart page-empty"><ShoppingBag size={35}/><h2>Your bag is waiting<span>.</span></h2><p>Start in the Store and build your next look.</p><button className="primary" onClick={() => go("store")}>Explore Store <ArrowRight size={16}/></button></div>}</section>;
 }
 
 function GiftCard({ go }: { go: (view: View) => void }) {

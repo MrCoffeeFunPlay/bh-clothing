@@ -559,3 +559,26 @@ export async function deleteFaq(id: number, token: string) {
   const rows = await request<FaqItem[]>(`/rest/v1/faq_items?id=eq.${id}&select=id`, { method: "DELETE", headers: { Prefer: "return=representation" } }, token);
   if (!rows?.length) throw new CatalogError("The question was not removed. You may not have permission.");
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Checkout: coupon codes are checked by the database; members can keep their delivery details for next time.
+// ---------------------------------------------------------------------------------------------------------------
+export type CouponReason = "unknown" | "paused" | "not_started" | "ended" | "used_up" | "sign_in" | "already_used" | "currency";
+export type CouponCheck =
+  | { ok: true; code: string; kind: "percent" | "fixed"; amount: number; currency: "ILS" | "USD"; discount: number }
+  | { ok: false; reason: CouponReason; code?: string; currency?: "ILS" | "USD"; starts_at?: string };
+export async function checkCoupon(code: string, currency: "ILS" | "USD", subtotal: number, token?: string) {
+  const answer = await request<CouponCheck>("/rest/v1/rpc/check_coupon", { method: "POST", body: JSON.stringify({ wanted: code, bag_currency: currency, bag_subtotal: subtotal }) }, token);
+  return answer.ok ? { ...answer, amount: Number(answer.amount), discount: Number(answer.discount) } : answer;
+}
+
+export type Delivery = { full_name: string; phone: string; country: string; city: string; street: string; apartment: string; postal_code: string; notes: string };
+export const emptyDelivery = (): Delivery => ({ full_name: "", phone: "", country: "Israel", city: "", street: "", apartment: "", postal_code: "", notes: "" });
+export async function fetchDelivery(session: UserSession) {
+  const rows = await request<{ delivery: Partial<Delivery> }[]>(`/rest/v1/profiles?id=eq.${encodeURIComponent(session.userId)}&select=delivery`, {}, session.accessToken);
+  return { ...emptyDelivery(), ...(rows?.[0]?.delivery ?? {}) };
+}
+export async function saveDelivery(session: UserSession, delivery: Delivery) {
+  const clean = Object.fromEntries(Object.entries(delivery).map(([key, value]) => [key, String(value).trim().slice(0, 200)]));
+  await request("/rest/v1/profiles", { method: "POST", body: JSON.stringify({ id: session.userId, delivery: clean }), headers: { Prefer: "resolution=merge-duplicates,return=minimal" } }, session.accessToken);
+}
