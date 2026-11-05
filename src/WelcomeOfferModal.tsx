@@ -15,7 +15,7 @@ export function WelcomeOfferModal({ onJoin }: Props) {
     <section className="welcome-offer" onMouseDown={(event) => event.stopPropagation()}>
       <button className="welcome-close" aria-label="Close offer" onClick={close}><X size={18}/></button>
       <div className="welcome-collage">{images.map((image, index) => <img key={image} className={`welcome-image image-${index + 1}`} src={image} alt=""/>)}</div>
-      <div className="welcome-copy"><p className="eyebrow"><Gift size={14}/> NEW TO BH</p><h2>Get <em>10% off</em><br/>your first order<span>.</span></h2><p>Create your BH account and your personal welcome code is ready at checkout. One code per order, always the best valid offer.</p><button className="glow-button" onClick={() => { close(); onJoin(); }}>Create account <ArrowRight size={16}/></button><button className="welcome-skip" onClick={close}>Maybe later</button></div>
+      <div className="welcome-copy"><p className="eyebrow"><Gift size={14}/> NEW TO BH</p><h2>Get <em>10% off</em><br/>your first order<span>.</span></h2><p>Create your BH account and enter <b>WELCOME10</b> at checkout. Once per customer, one offer per order.</p><button className="glow-button" onClick={() => { close(); onJoin(); }}>Create account <ArrowRight size={16}/></button><button className="welcome-skip" onClick={close}>Maybe later</button></div>
     </section>
   </div>;
 }

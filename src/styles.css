@@ -1071,3 +1071,35 @@ html.lang-he :is(h1, h2)[dir="rtl"] * { unicode-bidi: normal; }
   .checkout-summary { position: static; }
 }
 @media (max-width: 600px) { .checkout-form fieldset { grid-template-columns: 1fr; padding: 18px 16px; } }
+
+/* Real reviews */
+.real-review { padding: 21px; border: 1px solid #e2e0e9; border-radius: 20px; background: rgba(255, 255, 255, .72); }
+.real-review-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: #b8865e; }
+.real-review-top small { color: #a08f80; font-size: 11px; }
+.real-review h3 { margin: 14px 0 6px; font: 600 18px var(--serif); letter-spacing: -.03em; }
+.real-review p { margin: 0 0 12px; color: #5b4636; font-size: 13.5px; line-height: 1.6; white-space: pre-line; }
+.review-author { display: inline-flex; align-items: center; gap: 5px; color: #2f7d5b; font-size: 12px; font-weight: 600; }
+.reviews-empty { color: #7a6352; font-size: 14px; line-height: 1.6; }
+.reviews-empty.page-pad { display: flex; gap: 12px; align-items: flex-start; margin: 0 10.7vw 90px; padding: 22px; border-radius: 20px; background: #f6efe6; }
+.reviews-empty.page-pad p { margin: 0; }
+.review-locked, .review-mine { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; color: #5b4636; }
+.review-locked p { margin: 0; flex: 1; font-size: 13.5px; }
+.review-mine .review-success { margin: 0; flex: 1; }
+.review-form input { width: 100%; margin: 10px 0 0; padding: 11px 14px; border: 1px solid #e2d4c3; border-radius: 12px; background: #fff; font: inherit; font-size: 14px; }
+.review-form textarea { margin-top: 10px; }
+.review-list-item { display: grid; gap: 8px; }
+.review-list-item > button { justify-self: start; display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; color: #8a5a3c; font-size: 12px; font-weight: 700; cursor: pointer; }
+.review-list .real-review { min-height: 0; }
+
+/* Honest wallet, password change, plans */
+.wallet-address-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; margin-top: 10px; }
+.wallet-address-form label { display: grid; gap: 5px; color: #5b4636; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.wallet-address-form input, .wallet-address-form select { padding: 10px 12px; border: 1px solid #e2d4c3; border-radius: 11px; background: #fff; font: inherit; font-size: 13.5px; font-weight: 400; letter-spacing: 0; text-transform: none; }
+.wallet-address-actions { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
+.wallet-address .saved-note { margin-top: 6px; }
+.password-change { display: grid; gap: 10px; max-width: 420px; }
+.password-change input { padding: 11px 14px; border: 1px solid #e2d4c3; border-radius: 12px; background: #fff; font: inherit; }
+.password-hint { margin: 0; color: #8b7a6c; font-size: 12px; }
+.plan-soon { align-self: flex-start; margin: 4px 0 10px; }
+.plan-details .glow-button[disabled] { opacity: .65; cursor: not-allowed; }
+@media (max-width: 600px) { .wallet-address-form { grid-template-columns: 1fr; } }

@@ -130,3 +130,36 @@ export function CheckoutPage({ items, liveItems, coupon, setCoupon, currency, st
     </div>
   </section>;
 }
+
+// Account → Wallet & payments: what is real today. The delivery address can be saved and changed here; points and
+// saved cards open with payments (cards are kept by the payment provider, never by BH).
+export function WalletPanel({ freshSession, goClub }: { freshSession: Fresh; goClub: () => void }) {
+  const [delivery, setDelivery] = useState<Delivery | null>(null);
+  const [draft, setDraft] = useState<Delivery | null>(null);
+  const [state, setState] = useState<"idle" | "saving" | "saved" | "failed">("idle");
+  useEffect(() => { void (async () => { const active = await freshSession(); setDelivery(active ? await fetchDelivery(active).catch(() => emptyDelivery()) : emptyDelivery()); })(); }, []);
+  const hasAddress = Boolean(delivery && delivery.street.trim() && delivery.city.trim());
+  const field = (key: keyof Delivery) => ({ value: draft![key], onChange: (event: { target: { value: string } }) => setDraft({ ...draft!, [key]: event.target.value }) });
+  const save = (event: FormEvent) => {
+    event.preventDefault(); if (!draft) return; setState("saving");
+    void (async () => { try { const active = await freshSession(); if (!active) throw new Error(); await saveDelivery(active, draft); setDelivery(draft); setDraft(null); setState("saved"); } catch { setState("failed"); } })();
+  };
+  return <div className="wallet-panel">
+    <article><small>BH POINTS</small><strong>Soon</strong><span>Points start with the first paid orders.</span><button className="ghost-pill" onClick={goClub}>How BH Points work <ArrowRight size={15}/></button></article>
+    <article><ShieldCheck size={24}/><div><small>PAYMENT METHODS</small><h3>Nothing saved</h3><p>Payments open soon. Cards will be kept by the licensed payment provider, never by BH.</p></div></article>
+    <article className="wallet-address"><Truck size={24}/><div><small>DELIVERY ADDRESS</small>
+      {delivery === null ? <p>Loading…</p> : draft ? <form className="wallet-address-form" onSubmit={save}>
+        <label>Full name<input required autoComplete="name" {...field("full_name")}/></label>
+        <label>Phone<input type="tel" required autoComplete="tel" {...field("phone")}/></label>
+        <label>Country<select autoComplete="country-name" {...field("country")}><option>Israel</option><option>United States</option><option>United Kingdom</option><option>Canada</option><option>Germany</option><option>France</option><option>Other</option></select></label>
+        <label>City<input required autoComplete="address-level2" {...field("city")}/></label>
+        <label>Street and number<input required autoComplete="address-line1" {...field("street")}/></label>
+        <label>Apartment, floor (optional)<input autoComplete="address-line2" {...field("apartment")}/></label>
+        <label>Postal code<input autoComplete="postal-code" {...field("postal_code")}/></label>
+        <div className="wallet-address-actions"><button className="glow-button" disabled={state === "saving"}>{state === "saving" ? "Saving…" : "Save address"} <Check size={15}/></button><button type="button" className="ghost-pill" onClick={() => setDraft(null)}>Cancel</button></div>
+      </form> : hasAddress ? <><h3>{delivery.full_name || "Saved address"}</h3><p>{[delivery.street, delivery.apartment, delivery.city, delivery.postal_code, delivery.country].filter((part) => part.trim()).join(", ")}{delivery.phone ? <><br/>{delivery.phone}</> : null}</p></>
+        : <><h3>No address yet</h3><p>Save it once and it's ready at checkout.</p></>}
+      {state === "saved" && !draft && <span className="saved-note"><Check size={14}/> Saved.</span>}{state === "failed" && <span className="saved-note error">Not saved. Please try again.</span>}
+    </div>{!draft && delivery !== null && <button className="ghost-pill" onClick={() => { setDraft({ ...delivery }); setState("idle"); }}>{hasAddress ? "Edit" : "Add address"} <ArrowRight size={15}/></button>}</article>
+  </div>;
+}

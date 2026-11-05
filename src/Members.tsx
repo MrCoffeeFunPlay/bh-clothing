@@ -1,8 +1,8 @@
 // Member identity: profile pictures, tags (badges under a member's name), phone verification, and the owner's tag tools.
 import { type ChangeEvent, type FormEvent, useEffect, useState } from "react";
-import { BadgeCheck, Check, Crown, Flame, Gem, Heart, Lock, Pencil, Plus, Search, ShieldCheck, Smartphone, Sparkles, Star, Tags, Trash2, Trophy, X, Zap } from "lucide-react";
+import { BadgeCheck, Check, Crown, Flame, Gem, Heart, KeyRound, Lock, Pencil, Plus, Search, ShieldCheck, Smartphone, Sparkles, Star, Tags, Trash2, Trophy, X, Zap } from "lucide-react";
 import {
-  confirmPhoneCode, deleteTag, fetchMyBadges, fetchMyTags, fetchProfile, fetchTags, findMembers, normalisePhone, phoneStatus, saveProfile, saveTag, sendPhoneCode,
+  changePassword, confirmPhoneCode, deleteTag, fetchMyBadges, fetchMyTags, fetchProfile, fetchTags, findMembers, normalisePhone, phoneStatus, saveProfile, saveTag, sendPhoneCode,
   setMemberTag, tagIcons, uploadAvatar, type Member, type Profile, type Tag, type TagDraft, type TagIcon, type UserSession,
 } from "./catalogStore";
 
@@ -217,4 +217,33 @@ export function BadgesPage({ freshSession, owner }: { freshSession: Fresh; owner
       {locked.length ? <div className="badge-grid">{locked.map((badge) => card(badge))}</div> : <p className="admin-copy">You have every badge there is. Nice.</p>}
     </>}
   </div>;
+}
+
+// Account settings → Password: a real change (8+ characters with letters and numbers, typed twice).
+export function PasswordChange({ freshSession, onMessage }: { freshSession: Fresh; onMessage: (banner: Banner) => void }) {
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const strong = password.length >= 8 && /[a-z]/i.test(password) && /[0-9]/.test(password);
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!strong) { onMessage({ ok: false, text: "Choose a password with at least 8 characters, including letters and numbers." }); return; }
+    if (password !== confirm) { onMessage({ ok: false, text: "The two passwords don't match." }); return; }
+    setBusy(true);
+    void (async () => {
+      try { const active = await freshSession(); if (!active) throw new Error("Your session ended. Please sign in again."); await changePassword(active, password); setOpen(false); setPassword(""); setConfirm(""); onMessage({ ok: true, text: "Your password has been changed." }); }
+      catch (problem) { onMessage({ ok: false, text: messageOf(problem) }); }
+      finally { setBusy(false); }
+    })();
+  };
+  return <article className="verify-item"><KeyRound size={21}/><div>
+    <h3>Password</h3>
+    {open ? <form onSubmit={submit} className="password-change">
+      <input type="password" autoComplete="new-password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="New password" aria-label="New password"/>
+      <input type="password" autoComplete="new-password" required value={confirm} onChange={(event) => setConfirm(event.target.value)} placeholder="Repeat password" aria-label="Repeat password"/>
+      <p className="password-hint">At least 8 characters, with letters and numbers.</p>
+      <div className="verify-row"><button className="glow-button" disabled={busy}>{busy ? "Saving…" : "Save password"} <Check size={15}/></button><button type="button" className="ghost-pill" onClick={() => setOpen(false)}>Cancel</button></div>
+    </form> : <><p>Choose a new password for signing in with your email.</p><button className="ghost-pill" onClick={() => setOpen(true)}>Change password</button></>}
+  </div></article>;
 }
