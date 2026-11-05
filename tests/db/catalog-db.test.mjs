@@ -457,3 +457,37 @@ test('checkout: members save their own delivery details only', async () => {
   });
   await as('admin', async () => { assert.equal((await rows(`select count(*)::int as n from public.profiles where id = '${CUSTOMER}'`))[0].n, 0, 'not even an admin reads them through the API'); });
 });
+
+test('reviews: only buyers review (once per piece), everyone reads them, only BH hides them', async () => {
+  const OTHER = '00000000-0000-4000-8000-000000000003';
+  await db.exec(`insert into auth.users (id, email) values ('${OTHER}', 'other@example.com') on conflict do nothing`);
+  await as('customer', async () => {
+    await assert.rejects(db.query(`insert into public.reviews (product_id, rating, body) values (2, 5, 'Great')`), /row-level security/, 'no paid order with this piece yet');
+  });
+  // A paid order with Oni Blade (as the payment provider will mark it), and a test order with Rose.
+  await db.exec(`select set_config('request.jwt.claim.role', 'service_role', false)`);
+  const paid = (await rows(`insert into public.orders (user_id, customer_name, customer_email, currency, subtotal, total, payment_status, is_test) values ('${CUSTOMER}', 'C', 'customer@example.com', 'ILS', 140, 140, 'paid', false) returning id`))[0].id;
+  await db.query(`insert into public.order_items (order_id, product_id, product_name, quantity, unit_price) values ($1, 2, 'Oni Blade', 1, 140)`, [paid]);
+  const test = (await rows(`insert into public.orders (user_id, customer_name, customer_email, currency, subtotal, total, payment_status, is_test) values ('${CUSTOMER}', 'C', 'customer@example.com', 'ILS', 120, 120, 'paid', true) returning id`))[0].id;
+  await db.query(`insert into public.order_items (order_id, product_id, product_name, quantity, unit_price) values ($1, 4, 'Rose', 1, 120)`, [test]);
+  await db.exec(`select set_config('request.jwt.claim.role', '', false)`);
+  await db.exec(`insert into public.profiles (id, username) values ('${CUSTOMER}', 'noa') on conflict (id) do update set username = 'noa'`);
+  await as('customer', async () => {
+    assert.equal((await rows(`select public.has_bought(2) as b`))[0].b, true);
+    assert.equal((await rows(`select public.has_bought(4) as b`))[0].b, false, 'a test order does not count');
+    await db.query(`insert into public.reviews (product_id, rating, title, body) values (2, 5, 'Perfect', 'Heavy and soft.')`);
+    await assert.rejects(db.query(`insert into public.reviews (product_id, rating, body) values (2, 4, 'Again')`), /duplicate key/, 'one review per piece');
+    await assert.rejects(db.query(`insert into public.reviews (product_id, rating, body, user_id) values (2, 1, 'Fake', '${OTHER}')`), /row-level security|permission denied/);
+    await db.query(`update public.reviews set rating = 4 where product_id = 2`);
+    await assert.rejects(db.query(`update public.reviews set status = 'hidden' where product_id = 2`), /Only BH can hide/);
+  });
+  await as('visitor', async () => {
+    assert.deepEqual((await rows(`select rating, title, author from public.published_reviews(2)`)), [{ rating: 4, title: 'Perfect', author: 'noa' }]);
+    assert.deepEqual((await rows(`select product_id::int, reviews, rating::float from public.review_stats()`)), [{ product_id: 2, reviews: 1, rating: 4 }]);
+    await assert.rejects(db.query(`insert into public.reviews (product_id, rating, body) values (2, 5, 'x')`), /permission denied/);
+  });
+  await as('admin', async () => { await db.query(`update public.reviews set status = 'hidden' where product_id = 2`); });
+  await as('visitor', async () => { assert.equal((await rows(`select count(*)::int as n from public.published_reviews(2)`))[0].n, 0, 'hidden reviews are not shown'); });
+  await as('customer', async () => { assert.equal((await rows(`select status from public.reviews where product_id = 2`))[0].status, 'hidden', 'the member still sees their own'); });
+  assert.deepEqual((await rows(`select action from public.activity_log where action like 'Review%' order by id`)).map(r => r.action), ['Review posted', 'Review hidden']);
+});

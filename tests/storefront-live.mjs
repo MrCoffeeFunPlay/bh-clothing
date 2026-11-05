@@ -31,7 +31,7 @@ const rowFrom = (payload, id) => ({
   product_colours: payload.colours.map((c, i) => ({ ...c, sort_order: i })), product_weight_prices: payload.weight_prices,
 });
 let db = products.map(p => rowFrom(store.productToPayload(p, categories), p.id));
-const deliveries = {};
+const deliveries = {}; const reviewsDb = []; const buyers = {};
 const backend = { couponChecks: [], lastQueries: {}, down: false, failNextSave: false, saves: [], emails: [], signupRedirects: [], expired: new Set() };
 const users = {
   'owner@example.com': { password: 'owner-pass', admin: true, confirmed: true },
@@ -74,6 +74,14 @@ globalThis.fetch = async (url, init = {}) => {
   const body = typeof init.body === 'string' ? JSON.parse(init.body) : {};
   if (token && backend.expired.has(token) && !path.startsWith('/auth/v1/token')) return json({ code: 'PGRST303', message: 'JWT expired' }, 401);
   if (path.startsWith('/rest/v1/categories')) return json(categories);
+  if (path === '/rest/v1/rpc/published_reviews') return json(reviewsDb.filter(r => r.status === 'published' && (!body.of_product || r.product_id === body.of_product)).map(({ user, status, ...r }) => ({ ...r, author: profiles[user]?.username || profiles[user]?.first_name || 'BH member' })));
+  if (path === '/rest/v1/rpc/review_stats') return json([]);
+  if (path === '/rest/v1/rpc/has_bought') return json(Boolean(email && buyers[email]?.includes(body.of_product)));
+  if (path.startsWith('/rest/v1/reviews')) {
+    if (!email) return json([]);
+    if (init.method === 'POST') { if (!buyers[email]?.includes(body.product_id)) return json({ message: 'new row violates row-level security policy for table "reviews"' }, 403); const row = { id: reviewsDb.length + 1, user: email, status: 'published', created_at: '2026-11-05T10:00:00Z', ...body }; reviewsDb.push(row); return json([row], 201); }
+    return json(reviewsDb.filter(r => r.user === email && 'eq.' + r.product_id === new URL(url).searchParams.get('product_id')));
+  }
   if (path.startsWith('/rest/v1/profiles') && new URL(url).searchParams.get('select') === 'delivery') return json([{ delivery: deliveries[email] ?? {} }]);
   if (path === '/rest/v1/profiles' && init.method === 'POST' && body.delivery) { deliveries[email] = body.delivery; return json(undefined, 201); }
   if (path.startsWith('/rest/v1/products')) return json(structuredClone(db.filter(row => row.active || isAdmin)));
@@ -107,6 +115,7 @@ globalThis.fetch = async (url, init = {}) => {
   if (path === '/auth/v1/settings') return json({ external: { email: true, google: true, facebook: true, apple: false } });
   if (path === '/auth/v1/user' && init.method === 'PUT') {
     if (!email) return json({ msg: 'invalid JWT' }, 401);
+    if (body.password) { users[email].password = body.password; return json({ id: 'uid:' + email, email }); }
     if (backend.smsOff) return json({ msg: 'Unsupported phone provider' }, 422);
     users[email].pendingPhone = body.phone; users[email].smsCode = '654321'; return json({ id: 'uid:' + email, email });
   }
@@ -757,6 +766,46 @@ assert.equal(ordersDb.filter(order => order.customer_name === 'Dana Cohen' && or
 await navigate('home'); await navigate('checkout'); await settle(200);
 assert.equal(checkoutField('Street and number').value, 'Dizengoff 120', 'saved details come back');
 
+// 25. Nothing fake: reviews only from buyers, a real password change, an honest wallet, plans and gift cards locked.
+clearBrowser();
+await visit('reviews');
+assert.match(document.querySelector('.reviews').textContent, /No reviews yet/); assert.doesNotMatch(document.body.textContent, /147|4\.8/, 'no invented numbers');
+await visit('store');
+await click(document.querySelector('.category-float'));
+await click(btn('Oni Blade', [...document.querySelectorAll('.card')].find(card => card.textContent.includes('Oni Blade'))));
+const reviewsBox = () => document.querySelector('.product-reviews');
+assert.match(reviewsBox().textContent, /No reviews yet.*Bought this piece\? Sign in to review it/s);
+assert.doesNotMatch(document.querySelector('.product-page').textContent, /Verified customer|returns within 30 days|International shipping available/);
+const oni = products.find(p => p.name === 'Oni Blade').id;
+buyers['dana@gmail.com'] = [oni];
+await signIn('dana@gmail.com', 'dana-pass'); await settle(300);
+await navigate('store'); await click(document.querySelector('.category-float'));
+await click(btn('Oni Blade', [...document.querySelectorAll('.card')].find(card => card.textContent.includes('Oni Blade')))); await settle(200);
+await click(reviewsBox().querySelector('.review-stars button:nth-child(5)'));
+await act(() => { const box = reviewsBox().querySelector('textarea'); Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(box, 'Heavy, soft and the print is sharp.'); box.dispatchEvent(new Event('input', { bubbles: true })); });
+await submit(reviewsBox().querySelector('form')); await settle(200);
+assert.equal(reviewsDb.at(-1).rating, 5); assert.equal(reviewsDb.at(-1).user, 'dana@gmail.com');
+assert.match(reviewsBox().textContent, /Heavy, soft and the print is sharp.*Verified buyer.*Thanks — your review is up/s);
+await assert.rejects(store.saveReview({ product_id: products.find(p => p.name === 'Rose').id, rating: 5, title: '', body: 'Fake' }, { accessToken: 'token:dana@gmail.com', userId: 'uid:dana@gmail.com' }), /permission/, 'no review without buying');
+// Wallet: no invented card or points; Club and gift cards can't be "bought".
+await navigate('account'); await click(btn('Wallet & payments', document.querySelector('.account-dashboard aside')));
+assert.doesNotMatch(document.querySelector('.account-panel').textContent, /Visa|3482|1,240|\$62/);
+assert.match(document.querySelector('.account-panel').textContent, /Nothing saved.*DELIVERY ADDRESS/s);
+// A real password change.
+await click(btn('Account settings', document.querySelector('.account-dashboard aside')));
+assert.doesNotMatch(document.querySelector('.account-panel').textContent, /Last changed 3 months ago/);
+await click(btn('Change password', document.querySelector('.account-panel')));
+await set(document.querySelector('[aria-label="New password"]'), 'newpass123'); await set(document.querySelector('[aria-label="Repeat password"]'), 'newpass123');
+await submit(document.querySelector('.password-change')); await settle(200);
+assert.equal(users['dana@gmail.com'].password, 'newpass123');
+assert.match(document.querySelector('.save-banner.save-ok').textContent, /password has been changed/);
+users['dana@gmail.com'].password = 'dana-pass';
+await navigate('gift'); await settle(100);
+const giftButton = [...document.querySelectorAll('.gift-form button.glow-button')].at(-1);
+assert.ok(giftButton.disabled); assert.match(giftButton.textContent, /Gift cards open soon/); assert.doesNotMatch(document.body.textContent, /BH-GIFT-8K4M/);
+await navigate('club'); await settle(100);
+assert.doesNotMatch(document.querySelector('.club-rebuild').textContent, /1,240|\$62\.00/);
+
 await act(() => root.unmount());
 rmSync('.live-dom', { recursive: true, force: true });
-console.log('PASS: checkout with discount codes, Hebrew option, badges page, activity log, coupons with limits, editable FAQ, Google sign-in from BH\'s own site, bag saved in the account and in the browser, unpaid test orders recorded by the owner and shown to members (no payment or receipt from the website), BH updates choice, designed automation emails, automations, profile pictures, phone verification with the Verified tag, owner-managed member tags, real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');
+console.log('PASS: real reviews only from buyers, honest wallet/plans/gift cards, password change, checkout with discount codes, Hebrew option, badges page, activity log, coupons with limits, editable FAQ, Google sign-in from BH\'s own site, bag saved in the account and in the browser, unpaid test orders recorded by the owner and shown to members (no payment or receipt from the website), BH updates choice, designed automation emails, automations, profile pictures, phone verification with the Verified tag, owner-managed member tags, real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');

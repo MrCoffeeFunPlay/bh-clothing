@@ -6,10 +6,10 @@ const quick = ["Help me find my size", "How does my 10% welcome code work?", "De
 
 function answer(question: string) {
   const value = question.toLowerCase();
-  if (value.includes("coupon") || value.includes("discount") || value.includes("10%") || value.includes("welcome")) return "When you register, BH creates a personal 10% welcome code for your first eligible order. One coupon applies per order, so promotions never stack — checkout keeps the best valid offer for you.";
+  if (value.includes("coupon") || value.includes("discount") || value.includes("10%") || value.includes("welcome")) return "Create a BH account and enter WELCOME10 at checkout for 10% off your first order. It works once per customer, and one offer applies per order: checkout keeps the better one for you.";
   if (value.includes("size") || value.includes("fit")) return "For the relaxed BH fit, start with your usual size. Prefer a closer fit? Go one size down. Tees let you choose 220g or 260g; hoodies and shorts keep one consistent construction.";
-  if (value.includes("point")) return "BH Points are added after an eligible paid order. The owner controls the earn rate and the value of each point, and your balance stays in your account wallet.";
-  if (value.includes("ship") || value.includes("delivery") || value.includes("return")) return "Delivery countries, price and estimated arrival appear at checkout once shipping zones are live. Eligible unworn pieces can be requested for return within 30 days of delivery.";
+  if (value.includes("point")) return "BH Points will start with paid orders. Your balance will show in your account wallet.";
+  if (value.includes("ship") || value.includes("delivery") || value.includes("return")) return "Delivery countries, prices and our returns policy will be published before orders open. For anything specific, write to us on WhatsApp or email.";
   if (value.includes("hoodie") || value.includes("back")) return "Each hoodie color has its own front and back gallery. Open the product, choose your color, then use the second thumbnail to view the matching back print.";
   return "I can help with sizing, materials, coupons, BH Points, delivery and returns. For an order-specific issue, use WhatsApp or email and the BH team can continue with you.";
 }

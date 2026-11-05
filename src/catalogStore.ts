@@ -582,3 +582,40 @@ export async function saveDelivery(session: UserSession, delivery: Delivery) {
   const clean = Object.fromEntries(Object.entries(delivery).map(([key, value]) => [key, String(value).trim().slice(0, 200)]));
   await request("/rest/v1/profiles", { method: "POST", body: JSON.stringify({ id: session.userId, delivery: clean }), headers: { Prefer: "resolution=merge-duplicates,return=minimal" } }, session.accessToken);
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Reviews: only members who bought a piece can review it; everyone reads the published ones.
+// ---------------------------------------------------------------------------------------------------------------
+export type PublicReview = { id: number; product_id: number; rating: number; title: string; body: string; created_at: string; author: string };
+export type MyReview = { id: number; product_id: number; rating: number; title: string; body: string; status: "published" | "hidden" };
+export type ReviewStat = { product_id: number; reviews: number; rating: number };
+export const fetchReviews = (productId?: number, token?: string) =>
+  request<PublicReview[]>("/rest/v1/rpc/published_reviews", { method: "POST", body: JSON.stringify(productId ? { of_product: productId } : {}) }, token).then(rows => rows ?? []);
+export const fetchReviewStats = () =>
+  request<ReviewStat[]>("/rest/v1/rpc/review_stats", { method: "POST", body: "{}" }).then(rows => (rows ?? []).map(row => ({ ...row, rating: Number(row.rating) })));
+export const hasBought = (productId: number, session: UserSession) =>
+  request<boolean>("/rest/v1/rpc/has_bought", { method: "POST", body: JSON.stringify({ of_product: productId }) }, session.accessToken).then(Boolean);
+export async function fetchMyReview(productId: number, session: UserSession) {
+  const rows = await request<MyReview[]>(`/rest/v1/reviews?product_id=eq.${productId}&user_id=eq.${encodeURIComponent(session.userId)}&select=id,product_id,rating,title,body,status`, {}, session.accessToken);
+  return rows?.[0] ?? null;
+}
+export async function saveReview(review: { id?: number; product_id: number; rating: number; title: string; body: string }, session: UserSession) {
+  const body = JSON.stringify(review.id ? { rating: review.rating, title: review.title.trim(), body: review.body.trim() } : { product_id: review.product_id, rating: review.rating, title: review.title.trim(), body: review.body.trim() });
+  const rows = review.id
+    ? await request<MyReview[]>(`/rest/v1/reviews?id=eq.${review.id}&select=id,product_id,rating,title,body,status`, { method: "PATCH", body, headers: { Prefer: "return=representation" } }, session.accessToken)
+    : await request<MyReview[]>("/rest/v1/reviews?select=id,product_id,rating,title,body,status", { method: "POST", body, headers: { Prefer: "return=representation" } }, session.accessToken);
+  if (!rows?.[0]) throw new CatalogError("Your review was not saved. Please try again.");
+  return rows[0];
+}
+// Owner: every review (hidden ones too) and hiding/showing.
+export type AdminReview = MyReview & { created_at: string };
+export const fetchAllReviews = (token: string) => request<AdminReview[]>("/rest/v1/reviews?select=id,product_id,rating,title,body,status,created_at&order=created_at.desc", {}, token).then(rows => rows ?? []);
+export async function setReviewStatus(id: number, status: "published" | "hidden", token: string) {
+  const rows = await request<AdminReview[]>(`/rest/v1/reviews?id=eq.${id}&select=id`, { method: "PATCH", body: JSON.stringify({ status }), headers: { Prefer: "return=representation" } }, token);
+  if (!rows?.length) throw new CatalogError("The review was not changed. You may not have permission.");
+}
+
+// A signed-in member sets a new password (also works for members who joined with Google).
+export async function changePassword(session: UserSession, password: string) {
+  await request("/auth/v1/user", { method: "PUT", body: JSON.stringify({ password }) }, session.accessToken);
+}

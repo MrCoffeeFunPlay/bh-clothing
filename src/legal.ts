@@ -1,6 +1,6 @@
 // The privacy policy and terms of use, written to match what the site actually does today. They are a plain-language
 // starting point, not legal advice: have them reviewed by a professional before orders open.
-export const LEGAL_UPDATED = "4 November 2026";
+export const LEGAL_UPDATED = "5 November 2026";
 export const BUSINESS_EMAIL = "support@bhclothing.fashion";
 
 export type LegalSection = { heading: string; paragraphs?: string[]; points?: string[] };
@@ -16,6 +16,7 @@ export const privacySections: LegalSection[] = [
     "Whether you want BH updates (new drops and member offers by email), and when you said yes.",
     "Your bag (the pieces, colours and sizes you added) and your orders: the pieces, prices, delivery address, phone number and order status.",
     "Member tags shown on your profile, such as Verified.",
+    "Your reviews, if you write one after buying a piece: everyone can read it with your username (or first name) and its date. You can edit it at any time, and ask us to remove it.",
   ] },
   { heading: "What stays in your browser", paragraphs: ["Your sign-in (so you stay signed in if you choose \"Remember me\"), a visitor's bag before signing in, your currency choice (until you choose, it is set from your device's time zone: shekels in Israel, dollars elsewhere), whether you've seen the welcome offer, and copies of site files and images so the BH app opens quickly. You can clear these in your browser settings at any time."] },
   { heading: "How we use it", points: [
