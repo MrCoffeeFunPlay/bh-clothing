@@ -279,6 +279,16 @@ export async function sessionFromConfirmationLink(hash: string): Promise<Redirec
 export const resendSignupCode = (email: string) =>
   request("/auth/v1/resend", { method: "POST", body: JSON.stringify({ type: "signup", email }) });
 
+// Forgot password: a code by email (the "Reset password" email), then a new password once the code is right.
+export const sendPasswordResetCode = (email: string) =>
+  request("/auth/v1/recover", { method: "POST", body: JSON.stringify({ email }) });
+export async function resetPasswordWithCode(email: string, code: string, password: string, remember = true) {
+  const answer = await request<TokenAnswer>("/auth/v1/verify", { method: "POST", body: JSON.stringify({ type: "recovery", email, token: code.trim() }) });
+  const session = keep(toSession(answer, remember))!;
+  await request("/auth/v1/user", { method: "PUT", body: JSON.stringify({ password }) }, session.accessToken);
+  return session;
+}
+
 // force: refresh even when the stored token still looks valid (the server said it had expired).
 export async function currentSession(force = false): Promise<UserSession | null> {
   let stored: UserSession | null = null;

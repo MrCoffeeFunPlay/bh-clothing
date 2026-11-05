@@ -32,7 +32,7 @@ const rowFrom = (payload, id) => ({
 });
 let db = products.map(p => rowFrom(store.productToPayload(p, categories), p.id));
 const deliveries = {}; const reviewsDb = []; const buyers = {};
-const backend = { couponChecks: [], lastQueries: {}, down: false, failNextSave: false, saves: [], emails: [], signupRedirects: [], expired: new Set() };
+const backend = { resetCodes: {}, couponChecks: [], lastQueries: {}, down: false, failNextSave: false, saves: [], emails: [], signupRedirects: [], expired: new Set() };
 const users = {
   'owner@example.com': { password: 'owner-pass', admin: true, confirmed: true },
   'customer@example.com': { password: 'customer-pass', admin: false, confirmed: true },
@@ -73,6 +73,8 @@ globalThis.fetch = async (url, init = {}) => {
   const isAdmin = Boolean(email && users[email]?.admin);
   const body = typeof init.body === 'string' ? JSON.parse(init.body) : {};
   if (token && backend.expired.has(token) && !path.startsWith('/auth/v1/token')) return json({ code: 'PGRST303', message: 'JWT expired' }, 401);
+  if (path === '/auth/v1/recover') { backend.resetCodes[body.email] = '73019482'; return json({}); }
+  if (path === '/auth/v1/verify' && body.type === 'recovery') return backend.resetCodes[body.email] === body.token ? tokenAnswer(body.email) : json({ msg: 'Token has expired or is invalid' }, 403);
   if (path.startsWith('/rest/v1/categories')) return json(categories);
   if (path === '/rest/v1/rpc/published_reviews') return json(reviewsDb.filter(r => r.status === 'published' && (!body.of_product || r.product_id === body.of_product)).map(({ user, status, ...r }) => ({ ...r, author: profiles[user]?.username || profiles[user]?.first_name || 'BH member' })));
   if (path === '/rest/v1/rpc/review_stats') return json([]);
@@ -806,6 +808,22 @@ assert.ok(giftButton.disabled); assert.match(giftButton.textContent, /Gift cards
 await navigate('club'); await settle(100);
 assert.doesNotMatch(document.querySelector('.club-rebuild').textContent, /1,240|\$62\.00/);
 
+// 26. Forgot password: a code by email, then a new password (8+ with letters and numbers) and signed in.
+clearBrowser();
+await visit('home');
+await click(document.querySelector('.account-menu > button'));
+await click(btn('Forgot password?', modal()));
+await set(label('Email address', modal()), 'dana@gmail.com'); await submit(modal().querySelector('form'));
+assert.match(modal().textContent, /NEW PASSWORD.*dana@gmail\.com/s);
+assert.equal(backend.resetCodes['dana@gmail.com'], '73019482', 'the reset email was asked for');
+await set(label('Code from the email', modal()), '11111111'); await set(label('New password', modal()), 'brandnew99'); await set(label('Confirm password', modal()), 'brandnew99');
+await submit(modal().querySelector('form'));
+assert.match(modal().querySelector('.auth-message.error').textContent, /wrong or has expired/);
+await set(label('Code from the email', modal()), '73019482'); await submit(modal().querySelector('form')); await settle(200);
+assert.equal(modal()?.textContent ?? null, null, 'the window closes'); assert.equal(users['dana@gmail.com'].password, 'brandnew99');
+assert.match(document.querySelector('.link-notice.save-ok').textContent, /password has been changed/);
+users['dana@gmail.com'].password = 'dana-pass';
+
 await act(() => root.unmount());
 rmSync('.live-dom', { recursive: true, force: true });
-console.log('PASS: real reviews only from buyers, honest wallet/plans/gift cards, password change, checkout with discount codes, Hebrew option, badges page, activity log, coupons with limits, editable FAQ, Google sign-in from BH\'s own site, bag saved in the account and in the browser, unpaid test orders recorded by the owner and shown to members (no payment or receipt from the website), BH updates choice, designed automation emails, automations, profile pictures, phone verification with the Verified tag, owner-managed member tags, real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');
+console.log('PASS: forgot password with an email code, real reviews only from buyers, honest wallet/plans/gift cards, password change, checkout with discount codes, Hebrew option, badges page, activity log, coupons with limits, editable FAQ, Google sign-in from BH\'s own site, bag saved in the account and in the browser, unpaid test orders recorded by the owner and shown to members (no payment or receipt from the website), BH updates choice, designed automation emails, automations, profile pictures, phone verification with the Verified tag, owner-managed member tags, real accounts (stay signed in after refresh, remember me, email code and confirmation-link sign-up, Google/Facebook sign-in, plain-language date errors, owner-only Owner area, profile save with confirmation), live catalogue from the database, unavailable state and recovery, owner sign-in (wrong password, non-admin, admin), save with admin token, failed save, hide product, fresh visit from another browser, customer refused.');
