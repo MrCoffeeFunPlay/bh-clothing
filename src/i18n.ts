@@ -278,6 +278,7 @@ const he: Record<string, string> = {
   "Thanks — your review is up.": "תודה — הביקורת שלך פורסמה.", "You reviewed this piece.": "כתבת ביקורת על הפריט הזה.", "It is hidden by BH.": "היא הוסתרה על ידי BH.",
   "Verified buyer": "קונה מאומת/ת", "Positive": "חיוביות", "Critical": "ביקורתיות", "1 review from a verified buyer": "ביקורת אחת מקונה מאומת/ת", "1 review": "ביקורת אחת",
   "Real": "דעות", "opinions": "אמיתיות", "The BH review room": "חדר הביקורות של BH",
+  "points to start with": "נקודות להתחלה", "Your first points": "הנקודות הראשונות שלך", "With your first purchase": "ברכישה הראשונה", "Earn your first points with your first purchase.": "צברו את הנקודות הראשונות שלכם ברכישה הראשונה.",
   // Language
   "Language": "שפה", "We couldn't show your bag": "לא הצלחנו להציג את הסל", "English": "English", "Hebrew": "עברית",
 };

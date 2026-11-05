@@ -1103,3 +1103,20 @@ html.lang-he :is(h1, h2)[dir="rtl"] * { unicode-bidi: normal; }
 .plan-soon { align-self: flex-start; margin: 4px 0 10px; }
 .plan-details .glow-button[disabled] { opacity: .65; cursor: not-allowed; }
 @media (max-width: 600px) { .wallet-address-form { grid-template-columns: 1fr; } }
+
+/* BH Points: start at zero, with a coin mark */
+.points-zero { display: inline-flex; align-items: center; gap: 12px; }
+.points-zero svg { flex: none; padding: 7px; border-radius: 50%; background: rgba(255, 244, 230, .18); box-sizing: content-box; }
+.password-change, .verify-item .ghost-pill { margin-top: 12px; }
+.verify-item > div > p + .ghost-pill { display: inline-flex; }
+
+/* Gift card: the delivery box takes the colours of the chosen card */
+.gift-form > aside.gift-summary-ivory { background: linear-gradient(145deg, #fffaf1, #e5d4bd); color: #442f23; border-color: #ddc5a6; }
+.gift-form > aside.gift-summary-ivory .eyebrow, .gift-form > aside.gift-summary-ivory > small, .gift-form > aside.gift-summary-ivory > p:not(.eyebrow) { color: #81624b; }
+.gift-form > aside.gift-summary-ivory > div { border-color: rgba(68, 47, 35, .16); }
+.gift-form > aside.gift-summary-ivory .glow-button { background: #442f23; color: #fff8ed; }
+.gift-form > aside.gift-summary-night { background: linear-gradient(145deg, #191918, #393633); color: #fffaf0; border-color: #252522; }
+.gift-form > aside.gift-summary-night .eyebrow { color: #c69463; }
+.gift-form > aside.gift-summary-night > small, .gift-form > aside.gift-summary-night > p:not(.eyebrow) { color: #cfc5b9; }
+.gift-form > aside.gift-summary-night .glow-button { background: #c69463; color: #231e1a; }
+.gift-form > aside { transition: background .35s ease, color .35s ease; }

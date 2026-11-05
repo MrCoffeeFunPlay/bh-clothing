@@ -1,7 +1,7 @@
 // Checkout: delivery details, the order summary with one coupon code, and the payment step. Payments are not open yet,
 // so the pay button stays locked: nothing is charged and no order is placed from here.
 import { type FormEvent, useEffect, useState } from "react";
-import { ArrowRight, Check, ChevronLeft, LockKeyhole, ShieldCheck, Tag, Ticket, Truck, UserRound, X } from "lucide-react";
+import { ArrowRight, Check, ChevronLeft, Coins, LockKeyhole, ShieldCheck, Tag, Ticket, Truck, UserRound, X } from "lucide-react";
 import type { Product } from "./catalog";
 import { checkCoupon, emptyDelivery, fetchDelivery, saveDelivery, type CouponCheck, type CouponReason, type Delivery, type UserSession } from "./catalogStore";
 import { formatMoney, orderTotals, type AppliedCoupon, type Currency, type Sale } from "./pricing";
@@ -145,7 +145,7 @@ export function WalletPanel({ freshSession, goClub }: { freshSession: Fresh; goC
     void (async () => { try { const active = await freshSession(); if (!active) throw new Error(); await saveDelivery(active, draft); setDelivery(draft); setDraft(null); setState("saved"); } catch { setState("failed"); } })();
   };
   return <div className="wallet-panel">
-    <article><small>BH POINTS</small><strong>Soon</strong><span>Points start with the first paid orders.</span><button className="ghost-pill" onClick={goClub}>How BH Points work <ArrowRight size={15}/></button></article>
+    <article><small>BH POINTS</small><strong className="points-zero"><Coins size={34}/> 0</strong><span>Earn your first points with your first purchase.</span><button className="ghost-pill" onClick={goClub}>How BH Points work <ArrowRight size={15}/></button></article>
     <article><ShieldCheck size={24}/><div><small>PAYMENT METHODS</small><h3>Nothing saved</h3><p>Payments open soon. Cards will be kept by the licensed payment provider, never by BH.</p></div></article>
     <article className="wallet-address"><Truck size={24}/><div><small>DELIVERY ADDRESS</small>
       {delivery === null ? <p>Loading…</p> : draft ? <form className="wallet-address-form" onSubmit={save}>
