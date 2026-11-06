@@ -279,6 +279,9 @@ const he: Record<string, string> = {
   "Verified buyer": "קונה מאומת/ת", "Positive": "חיוביות", "Critical": "ביקורתיות", "1 review from a verified buyer": "ביקורת אחת מקונה מאומת/ת", "1 review": "ביקורת אחת",
   "Real": "דעות", "opinions": "אמיתיות", "The BH review room": "חדר הביקורות של BH",
   "points to start with": "נקודות להתחלה", "Your first points": "הנקודות הראשונות שלך", "With your first purchase": "ברכישה הראשונה", "Earn your first points with your first purchase.": "צברו את הנקודות הראשונות שלכם ברכישה הראשונה.",
+  "Forgot password?": "שכחת סיסמה?", "FORGOT PASSWORD": "שכחתי סיסמה", "password": "סיסמה", "Enter your account's email and we'll send you a code to choose a new password.": "הזינו את המייל של החשבון ונשלח לכם קוד לבחירת סיסמה חדשה.",
+  "Send me a code": "שלחו לי קוד", "NEW PASSWORD": "סיסמה חדשה", "Choose a": "בחרו", "new one": "סיסמה חדשה", "Enter the code we sent to": "הזינו את הקוד ששלחנו אל", "and your new password.": "ואת הסיסמה החדשה.",
+  "Code from the email": "הקוד מהמייל", "Save and sign in": "שמירה והתחברות", "Your password has been changed and you're signed in.": "הסיסמה שונתה ואת/ה מחובר/ת.",
   // Language
   "Language": "שפה", "We couldn't show your bag": "לא הצלחנו להציג את הסל", "English": "English", "Hebrew": "עברית",
 };
@@ -300,6 +303,8 @@ const patterns: [RegExp, string][] = [
   [/^Continue with (Google|Facebook|Apple)$/, "המשך עם $1"],
   [/^(\d+) out of 5 stars$/, "$1 מתוך 5 כוכבים"],
   [/^(\d+) pieces$/, "$1 פריטים"],
+  [/^If (.+) has a BH account, a code is on its way\.$/, "אם ל-$1 יש חשבון ב-BH, קוד בדרך."],
+  [/^A new code is on its way to (.+)\.$/, "קוד חדש בדרך אל $1."],
   [/^(\d+) reviews from verified buyers$/, "$1 ביקורות מקונים מאומתים"],
   [/^From (\d+) verified buyers$/, "מתוך $1 קונים מאומתים"],
   [/^From 1 verified buyer$/, "מקונה מאומת/ת אחד/ת"],
